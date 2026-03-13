@@ -75,7 +75,6 @@ final class WindowFloaterModel: ObservableObject {
             guard let ownerName = item[kCGWindowOwnerName as String] as? String else { continue }
             let pid = item[kCGWindowOwnerPID as String] as? Int ?? 0
             if pid == ProcessInfo.processInfo.processIdentifier { continue }
-            let owner = item[kCGWindowOwnerName as String] as? String ?? "Unknown"
             let title = (item[kCGWindowName as String] as? String) ?? ""
             let isOnScreen = (item[kCGWindowIsOnscreen as String] as? Bool) ?? false
             let layer = item[kCGWindowLayer as String] as? Int ?? 0
@@ -307,7 +306,7 @@ struct WindowRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 260, alignment: .leading)
             Image(systemName: isPinned ? "pin.fill" : "pin")
-                .foregroundStyle(isPinned ? .accentColor : .secondary)
+                .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
                 .frame(width: 70, alignment: .leading)
         }
         .padding(.vertical, 4)
