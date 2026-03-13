@@ -1,40 +1,24 @@
 # macLev
 
-A minimal, self-contained macOS floating browser window app built with SwiftUI + WebKit.
+`macLev` is now an any-window floating utility instead of a browser.
 
-- Keeps window above other apps when enabled (floating mode).
-- Contains a simple in-app allowlist check that can block navigation to hosts not on the list.
-- No external libraries.
+## What it does
+- Lists visible windows from running apps.
+- Lets you pin/unpin a selected window above other windows.
+- Supports pinning all visible windows and unpinning all at once.
 
-## Versions
-- Minimum target: macOS 13 (if your current environment is macOS 15, this supports the latest + two versions back).
+## Important
+- It uses private CoreGraphics APIs (`CGSSetWindowLevel`) to control other app windows.
+- This is unstable across macOS releases and is not App Store safe.
 
-## Build & run
+## How to use
+1. Open `macLev`.
+2. Click `Refresh windows`.
+3. Select a window from the list.
+4. Click `Pin` to float it, `Unpin` to return it to normal level.
+5. Optional: `Pin all visible` / `Unpin all`.
 
-From Terminal:
-
-```bash
-cd ~/Downloads/macLev
-swift run
-```
-
-Or run from Xcode:
-
-```bash
-open Package.swift
-```
-Then choose a Mac scheme and click Run.
-
-## Build bundled app
-
-```bash
-cd ~/Downloads/macLev
-chmod +x build_app.sh
-./build_app.sh
-```
-
-This creates `build/macLev.app` and launches it.
-
-## Notes
-- This app is a local, self-contained example, not an AppKit plugin loader.
-- Network policy in this project blocks only browser navigation via a host allowlist; it is not a firewall.
+## Build
+- `cd ~/Downloads/macLev`
+- `swift build -c release`
+- `swift run`

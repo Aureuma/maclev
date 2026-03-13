@@ -1,218 +1,315 @@
 import SwiftUI
-import WebKit
+import Quartz
+import ApplicationServices
 
 @main
 struct MacLevApp: App {
-    @StateObject private var model = BrowserModel()
+    @StateObject private var model = WindowFloaterModel()
 
     var body: some Scene {
         WindowGroup("macLev") {
-            BrowserWindow()
+            WindowFloaterView()
                 .environmentObject(model)
+                .frame(minWidth: 780, minHeight: 540)
                 .onAppear {
-                    NSApp.setActivationPolicy(.regular)
-                    NSApp.activate(ignoringOtherApps: true)
+                    model.refreshWindows()
                 }
         }
-        .defaultSize(width: 1024, height: 640)
     }
 }
 
-final class BrowserModel: ObservableObject {
-    @Published var addressText = "https://www.example.com"
-    @Published var isFloating = true
-    @Published var restrictToAllowlist = false
-    @Published var allowlistText = ""
+typealias CGSConnectionID = UInt32
+typealias CGSWindowID = UInt32
+typealias CGSWindowLevel = Int32
+
+@_silgen_name("CGSMainConnectionID")
+func CGSMainConnectionID() -> CGSConnectionID
+
+@_silgen_name("CGSSetWindowLevel")
+func CGSSetWindowLevel(_ connection: CGSConnectionID, _ windowID: CGSWindowID, _ level: CGSWindowLevel) -> Int32
+
+struct TrackedWindow: Identifiable, Hashable {
+    let id: UInt32
+    let pid: Int
+    let owner: String
+    let name: String
+    let isOnScreen: Bool
+
+    var displayName: String {
+        if name.isEmpty {
+            return "(No Title)"
+        }
+        return name
+    }
+
+    var subtitle: String {
+        "\(owner) · pid:\(pid) · id:\(id)"
+    }
+}
+
+@MainActor
+final class WindowFloaterModel: ObservableObject {
+    @Published var windows: [TrackedWindow] = []
+    @Published var selectedWindowID: UInt32?
+    @Published var pinnedWindowIDs: Set<UInt32> = []
     @Published var status = "Ready"
-    @Published var pendingURL: URL?
 
-    func submitAddress() {
-        let raw = addressText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if raw.isEmpty {
-            status = "Address is empty"
+    private(set) var supportsWindowLevelAPI: Bool?
+
+    private let normalLevel: CGSWindowLevel = CGSWindowLevel(CGWindowLevelForKey(.normalWindow))
+    private let floatingLevel: CGSWindowLevel = CGSWindowLevel(CGWindowLevelForKey(.floatingWindow))
+
+    func refreshWindows() {
+        status = "Scanning visible windows..."
+
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as NSArray? else {
+            status = "Unable to read window list from system."
+            windows = []
             return
         }
 
-        var candidate = raw
-        if !candidate.contains("://") {
-            candidate = "https://" + candidate
+        var parsed: [TrackedWindow] = []
+
+        for item in list.compactMap({ $0 as? [String: Any] }) {
+            guard let windowID = item[kCGWindowNumber as String] as? UInt32 else { continue }
+            guard let ownerName = item[kCGWindowOwnerName as String] as? String else { continue }
+            let pid = item[kCGWindowOwnerPID as String] as? Int ?? 0
+            if pid == ProcessInfo.processInfo.processIdentifier { continue }
+            let owner = item[kCGWindowOwnerName as String] as? String ?? "Unknown"
+            let title = (item[kCGWindowName as String] as? String) ?? ""
+            let isOnScreen = (item[kCGWindowIsOnscreen as String] as? Bool) ?? false
+            let layer = item[kCGWindowLayer as String] as? Int ?? 0
+            if layer < 0 { continue }
+            parsed.append(TrackedWindow(id: windowID, pid: pid, owner: ownerName, name: title, isOnScreen: isOnScreen))
         }
 
-        guard let url = URL(string: candidate), let host = url.host, !host.isEmpty else {
-            status = "Invalid address"
+        windows = parsed
+            .filter { $0.isOnScreen || $0.name == "PiP" }
+            .sorted { lhs, rhs in
+                if lhs.owner == rhs.owner {
+                    return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+                }
+                return lhs.owner.localizedCaseInsensitiveCompare(rhs.owner) == .orderedAscending
+            }
+
+        if selectedWindowID == nil || windows.first(where: { $0.id == selectedWindowID }) == nil {
+            selectedWindowID = windows.first?.id
+        }
+
+        status = "Found \(windows.count) windows."
+    }
+
+    func requestAccessibilityPermission() {
+        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        let trusted = AXIsProcessTrustedWithOptions(options)
+        status = trusted ? "Accessibility trust granted." : "Accessibility not granted yet. Open System Settings > Privacy & Security > Accessibility to enable."
+    }
+
+    func hasAccessibility() -> Bool {
+        AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary)
+    }
+
+    func pinSelected() {
+        guard let id = selectedWindowID else {
+            status = "Select a window first."
             return
         }
-
-        addressText = url.absoluteString
-        status = "Loading"
-        pendingURL = url
+        applyFloating(id: id, pinned: true)
     }
 
-    func normalizedAllowlist() -> [String] {
-        allowlistText
-            .split { $0 == "," || $0 == " " || $0 == "\n" || $0 == "\t" }
-            .map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+    func unpinSelected() {
+        guard let id = selectedWindowID else {
+            status = "Select a window first."
+            return
+        }
+        applyFloating(id: id, pinned: false)
     }
 
-    func canNavigate(to host: String?) -> Bool {
-        guard restrictToAllowlist else { return true }
-        let host = host?.lowercased() ?? ""
-        let allowlist = normalizedAllowlist()
+    func pinAllVisible() {
+        var applied = 0
+        for window in windows where window.isOnScreen {
+            if !pinnedWindowIDs.contains(window.id) {
+                if setWindowLevel(window.id, floating: true) {
+                    pinnedWindowIDs.insert(window.id)
+                    applied += 1
+                }
+            }
+        }
+        status = "Pinned \(applied) windows."
+    }
 
-        if allowlist.isEmpty { return true }
-        return allowlist.contains(where: { host == $0 || host.hasSuffix("." + $0) })
+    func unpinAll() {
+        let toUnpin = Array(pinnedWindowIDs)
+        for id in toUnpin {
+            let _ = setWindowLevel(id, floating: false)
+            pinnedWindowIDs.remove(id)
+        }
+        status = "Unpinned \(toUnpin.count) windows."
+    }
+
+    func applyFloating(id: UInt32, pinned: Bool) {
+        if setWindowLevel(id, floating: pinned) {
+            if pinned {
+                pinnedWindowIDs.insert(id)
+                status = "Pinned window id \(id)"
+            } else {
+                pinnedWindowIDs.remove(id)
+                status = "Unpinned window id \(id)"
+            }
+        } else {
+            status = "Could not change window level (requires private API behavior on this macOS version)."
+        }
+    }
+
+    private func setWindowLevel(_ windowID: UInt32, floating: Bool) -> Bool {
+        supportsWindowLevelAPI = true
+
+        let level = floating ? floatingLevel : normalLevel
+        let result = CGSSetWindowLevel(CGSMainConnectionID(), windowID, level)
+        if result == 0 {
+            return true
+        }
+
+        supportsWindowLevelAPI = false
+        return false
+    }
+
+    var isPinned: (UInt32) -> Bool {
+        { self.pinnedWindowIDs.contains($0) }
     }
 }
 
-struct BrowserWindow: View {
-    @EnvironmentObject private var model: BrowserModel
+struct WindowFloaterView: View {
+    @EnvironmentObject private var model: WindowFloaterModel
+    @State private var listSelection: Set<UInt32> = []
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                TextField("https://example.com", text: $model.addressText)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(model.submitAddress)
-                Button("Go", action: model.submitAddress)
-                Toggle("Always on top", isOn: $model.isFloating)
-                    .toggleStyle(.switch)
-            }
-
-            HStack(spacing: 8) {
-                Toggle("Restrict navigation to allowlist", isOn: $model.restrictToAllowlist)
-                    .toggleStyle(.switch)
-                TextField("allowed hosts: example.com, api.mysite.local", text: $model.allowlistText)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(!model.restrictToAllowlist)
-            }
-
-            Text(model.status)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        VStack(spacing: 12) {
+            header
+            controls
+            rowHeader
+            windowList
+            statusBar
+            warning
 
             Divider()
 
-            RestrictingWebView(
-                status: $model.status,
-                addressText: $model.addressText,
-                pendingURL: $model.pendingURL,
-                shouldAllowHost: model.canNavigate
-            )
+            footer
         }
-        .padding(10)
-        .overlay(
-            WindowBehaviorConfigurator(isFloating: $model.isFloating)
-                .frame(width: 0, height: 0)
-                .allowsHitTesting(false), alignment: .topLeading
-        )
+        .padding(14)
+        .frame(minWidth: 780, minHeight: 540)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("macLev")
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+            Text("Floating utility for any visible window")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var controls: some View {
+        HStack(spacing: 10) {
+            Button("Refresh windows", action: model.refreshWindows)
+            Button("Request Accessibility", action: model.requestAccessibilityPermission)
+            Text("Accessibility status: \(model.hasAccessibility() ? "Trusted" : "Not trusted")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Pin") { model.pinSelected() }
+                .buttonStyle(.borderedProminent)
+            Button("Unpin") { model.unpinSelected() }
+            Button("Pin all visible") { model.pinAllVisible() }
+            Button("Unpin all") { model.unpinAll() }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var rowHeader: some View {
+        HStack {
+            Text("Window")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Source")
+                .font(.headline)
+                .frame(width: 220, alignment: .leading)
+            Text("Pinned")
+                .font(.headline)
+                .frame(width: 70, alignment: .leading)
+        }
+        .padding(.horizontal, 6)
+    }
+
+    private var windowList: some View {
+        List(selection: $listSelection) {
+            ForEach(model.windows) { window in
+                WindowRow(window: window, isPinned: model.isPinned(window.id))
+                    .tag(window.id)
+            }
+        }
         .onAppear {
-            model.submitAddress()
+            listSelection = model.selectedWindowID.map { Set([$0]) } ?? []
         }
+        .onChange(of: listSelection) { selection in
+            model.selectedWindowID = selection.first
+        }
+        .onChange(of: model.selectedWindowID) { selected in
+            listSelection = selected.map { Set([$0]) } ?? []
+        }
+        .listStyle(.inset(alternatesRowBackgrounds: false))
+        .frame(maxHeight: .infinity)
+    }
+
+    private var statusBar: some View {
+        Text(model.status)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var warning: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Important")
+                .font(.headline)
+            Text("This app uses private CoreGraphics window-level APIs to request a floating state for non-own windows.\nSuch APIs are unsupported and can break in macOS updates.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Note")
+                .font(.headline)
+            Text("It can only pin visible windows from other apps; behavior is app-by-app dependent.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-struct WindowBehaviorConfigurator: NSViewRepresentable {
-    @Binding var isFloating: Bool
+struct WindowRow: View {
+    let window: TrackedWindow
+    let isPinned: Bool
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        apply(to: view.window)
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        apply(to: nsView.window)
-    }
-
-    private func apply(to window: NSWindow?) {
-        guard let window = window else { return }
-        window.level = isFloating ? .floating : .normal
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.hidesOnDeactivate = false
-    }
-}
-
-struct RestrictingWebView: NSViewRepresentable {
-    @Binding var status: String
-    @Binding var addressText: String
-    @Binding var pendingURL: URL?
-    let shouldAllowHost: (String?) -> Bool
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(
-            updateStatus: { status = $0 },
-            updateAddress: { addressText = $0 },
-            shouldAllowHost: shouldAllowHost
-        )
-    }
-
-    func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = .nonPersistent()
-
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.navigationDelegate = context.coordinator
-        webView.allowsBackForwardNavigationGestures = true
-        return webView
-    }
-
-    func updateNSView(_ webView: WKWebView, context: Context) {
-        context.coordinator.updateRule(shouldAllowHost)
-
-        if let url = pendingURL {
-            DispatchQueue.main.async {
-                self.pendingURL = nil
-            }
-            webView.load(URLRequest(url: url))
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(window.displayName)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(window.subtitle)
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+                .frame(width: 260, alignment: .leading)
+            Image(systemName: isPinned ? "pin.fill" : "pin")
+                .foregroundStyle(isPinned ? .accentColor : .secondary)
+                .frame(width: 70, alignment: .leading)
         }
-    }
-
-    final class Coordinator: NSObject, WKNavigationDelegate {
-        private let updateStatus: (String) -> Void
-        private let updateAddress: (String) -> Void
-        private var shouldAllowHost: (String?) -> Bool
-
-        init(updateStatus: @escaping (String) -> Void,
-             updateAddress: @escaping (String) -> Void,
-             shouldAllowHost: @escaping (String?) -> Bool) {
-            self.updateStatus = updateStatus
-            self.updateAddress = updateAddress
-            self.shouldAllowHost = shouldAllowHost
-        }
-
-        func updateRule(_ check: @escaping (String?) -> Bool) {
-            shouldAllowHost = check
-        }
-
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                    decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            let host = navigationAction.request.url?.host
-            guard shouldAllowHost(host) else {
-                let hostText = host ?? "unknown"
-                updateStatus("Blocked by allowlist: \(hostText)")
-                decisionHandler(.cancel)
-                return
-            }
-            decisionHandler(.allow)
-        }
-
-        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            updateStatus("Loading")
-        }
-
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            let newAddress = webView.url?.absoluteString ?? ""
-            updateAddress(newAddress)
-            updateStatus("Loaded")
-        }
-
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            updateStatus("Failed: \(error.localizedDescription)")
-        }
-
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            updateStatus("Failed: \(error.localizedDescription)")
-        }
+        .padding(.vertical, 4)
     }
 }
