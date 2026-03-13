@@ -1,22 +1,21 @@
 # maclev
 
-`maclev` is now an any-window floating utility instead of a browser.
+`maclev` is a lightweight floating browser for macOS.
 
 ## What it does
-- Lists visible windows from running apps.
-- Lets you pin/unpin a selected window above other windows.
-- Supports pinning all visible windows and unpinning all at once.
+- Opens web pages in a simple desktop browser window.
+- Supports an always-on-top mode for the app's own window.
+- Uses SwiftUI and WebKit with no third-party dependencies.
 
-## Important
-- It uses private CoreGraphics APIs (`CGSSetWindowLevel`) to control other app windows.
-- This is unstable across macOS releases and is not App Store safe.
+## Notes
+- `Always on top` only affects the `maclev` window itself.
+- This app does not pin or control windows from other apps.
 
 ## How to use
 1. Open `maclev`.
-2. Click `Refresh windows`.
-3. Select a window from the list.
-4. Click `Pin` to float it, `Unpin` to return it to normal level.
-5. Optional: `Pin all visible` / `Unpin all`.
+2. Enter a URL such as `https://example.com`.
+3. Press `Return` or click `Go`.
+4. Use `Always on top` if you want the browser window to float above other windows.
 
 ## Build
 - `cd ~/Downloads/maclev`
