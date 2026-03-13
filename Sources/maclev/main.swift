@@ -7,7 +7,7 @@ struct MacLevApp: App {
     @StateObject private var model = WindowFloaterModel()
 
     var body: some Scene {
-        WindowGroup("macLev") {
+        WindowGroup("maclev") {
             WindowFloaterView()
                 .environmentObject(model)
                 .frame(minWidth: 780, minHeight: 540)
@@ -202,7 +202,7 @@ struct WindowFloaterView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("macLev")
+            Text("maclev")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
             Text("Floating utility for any visible window")
                 .font(.subheadline)

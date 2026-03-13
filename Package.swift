@@ -2,18 +2,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "macLev",
+    name: "maclev",
     platforms: [
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "macLev", targets: ["macLev"])
+        .executable(name: "maclev", targets: ["maclev"])
     ],
     dependencies: [],
     targets: [
         .executableTarget(
-            name: "macLev",
-            path: "Sources/macLev"
+            name: "maclev",
+            path: "Sources/maclev"
         )
     ]
 )

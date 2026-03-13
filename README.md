@@ -1,6 +1,6 @@
-# macLev
+# maclev
 
-`macLev` is now an any-window floating utility instead of a browser.
+`maclev` is now an any-window floating utility instead of a browser.
 
 ## What it does
 - Lists visible windows from running apps.
@@ -12,13 +12,13 @@
 - This is unstable across macOS releases and is not App Store safe.
 
 ## How to use
-1. Open `macLev`.
+1. Open `maclev`.
 2. Click `Refresh windows`.
 3. Select a window from the list.
 4. Click `Pin` to float it, `Unpin` to return it to normal level.
 5. Optional: `Pin all visible` / `Unpin all`.
 
 ## Build
-- `cd ~/Downloads/macLev`
+- `cd ~/Downloads/maclev`
 - `swift build -c release`
 - `swift run`
