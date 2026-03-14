@@ -13,7 +13,7 @@ if [[ ! -f "$ICON_SOURCE" ]]; then
     exit 1
 fi
 
-swift build -c release
+swift build --disable-sandbox -c release
 mkdir -p build/maclev.app/Contents/{MacOS,Resources}
 cp .build/release/maclev build/maclev.app/Contents/MacOS/maclev
 
