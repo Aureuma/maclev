@@ -834,9 +834,13 @@ struct BrowserView: View {
             .scaleEffect(0.78)
             .labelsHidden()
 
-            Text("🛸")
-                .font(.system(size: 11))
-                .allowsHitTesting(false)
+            Button {
+                model.setFloating(!model.isFloating)
+            } label: {
+                Text("🛸")
+                    .font(.system(size: 11))
+            }
+            .buttonStyle(.plain)
         }
         .help("Always on top")
     }
