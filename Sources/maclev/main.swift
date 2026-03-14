@@ -603,11 +603,11 @@ struct BrowserView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            fullWidthTopBar
+            tabStrip
 
             Divider()
 
-            tabStrip
+            fullWidthTopBar
 
             Divider()
 
@@ -659,8 +659,8 @@ struct BrowserView: View {
             floatingToggle
             newTabButton
         }
-        .padding(.top, 8)
-        .padding(.bottom, 8)
+        .padding(.top, 6)
+        .padding(.bottom, 6)
         .padding(.leading, 76)
         .padding(.trailing, 12)
         .frame(maxWidth: .infinity)
@@ -759,11 +759,11 @@ struct BrowserView: View {
 
     private var backForwardControls: some View {
         HStack(spacing: 0) {
-            Button(action: model.goBack) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 26, height: 22)
-            }
+                Button(action: model.goBack) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 24, height: 20)
+                }
             .disabled(!model.canGoBack)
             .keyboardShortcut("[", modifiers: .command)
             .buttonStyle(.plain)
@@ -773,7 +773,7 @@ struct BrowserView: View {
             Button(action: model.goForward) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 26, height: 22)
+                    .frame(width: 24, height: 20)
             }
             .disabled(!model.canGoForward)
             .keyboardShortcut("]", modifiers: .command)
@@ -795,15 +795,15 @@ struct BrowserView: View {
                     model.loadAddress()
                 }
                 .font(.system(size: 12))
-                .padding(.horizontal, 10)
-                .frame(maxWidth: .infinity, minHeight: 28)
+                .padding(.horizontal, 9)
+                .frame(maxWidth: .infinity, minHeight: 24)
 
             Divider()
 
             Button(action: model.reloadOrStop) {
                 Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
                     .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 28, height: 22)
+                    .frame(width: 24, height: 20)
             }
             .buttonStyle(.plain)
             .keyboardShortcut("r", modifiers: .command)
@@ -812,10 +812,10 @@ struct BrowserView: View {
         .frame(maxWidth: .infinity)
         .background(Color(NSColor.controlBackgroundColor).opacity(0.82))
         .overlay(
-            RoundedRectangle(cornerRadius: 13)
+            RoundedRectangle(cornerRadius: 11)
                 .stroke(Color(NSColor.separatorColor).opacity(0.34), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 13))
+        .clipShape(RoundedRectangle(cornerRadius: 11))
     }
 
     private var floatingToggle: some View {
@@ -824,11 +824,11 @@ struct BrowserView: View {
             set: { model.setFloating($0) }
         )) {
             Text("🛸")
-                .font(.system(size: 11))
+                .font(.system(size: 10))
         }
         .toggleStyle(.switch)
         .controlSize(.mini)
-        .scaleEffect(0.84)
+        .scaleEffect(0.78)
         .labelsHidden()
         .help("Always on top")
     }
@@ -839,7 +839,7 @@ struct BrowserView: View {
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 11, weight: .semibold))
-                .frame(width: 22, height: 22)
+                .frame(width: 20, height: 20)
         }
         .buttonStyle(.borderless)
         .help("New Tab")
