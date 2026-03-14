@@ -791,7 +791,7 @@ struct BrowserView: View {
                     }
                     .font(.system(size: 12))
                     .padding(.horizontal, 8)
-                    .frame(minHeight: 24, maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 24)
 
                 Divider()
 
