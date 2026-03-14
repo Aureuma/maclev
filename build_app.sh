@@ -4,22 +4,19 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 ICON_SOURCE="${ICON_SOURCE:-maclev-logo-square.png}"
-FALLBACK_ICON_PATH="maclev-fallback.icns"
 APP_STAGING_DIR="build/.bundle"
 APP_BUNDLE_PATH="$APP_STAGING_DIR/maclev.app"
 ICONSET_DIR="$APP_STAGING_DIR/AppIcon.iconset"
 ICON_FILE="$APP_BUNDLE_PATH/Contents/Resources/AppIcon.icns"
 OPEN_APP="${OPEN_APP:-0}"
 HAS_ICON=false
-HAS_FALLBACK_ICON=false
 
 if [[ -f "$ICON_SOURCE" ]]; then
     HAS_ICON=true
-elif [[ -f "$FALLBACK_ICON_PATH" ]]; then
-    HAS_FALLBACK_ICON=true
-    echo "Using fallback icon from repository: $FALLBACK_ICON_PATH"
 else
-    echo "Custom icon source not found: $ICON_SOURCE (building without custom icon)"
+    echo "Missing app icon source: $ICON_SOURCE" >&2
+    echo "Set ICON_SOURCE or place maclev-logo-square.png in the repository root." >&2
+    exit 1
 fi
 
 swift build --disable-sandbox -c release
@@ -39,11 +36,8 @@ if [[ "$HAS_ICON" == "true" ]]; then
 
     cp "$ICON_SOURCE" "$ICONSET_DIR/icon_512x512@2x.png"
     iconutil -c icns "$ICONSET_DIR" -o "$ICON_FILE"
-elif [[ "$HAS_FALLBACK_ICON" == "true" ]]; then
-    cp "$FALLBACK_ICON_PATH" "$ICON_FILE"
 fi
 
-if [[ "$HAS_ICON" == "true" ]]; then
 cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -59,37 +53,6 @@ cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<'PLIST'
     <string>MacLev</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
-    <key>NSHumanReadableCopyright</key>
-    <string>Copyright 2026 Aureuma</string>
-    <key>NSCameraUsageDescription</key>
-    <string>MacLev uses the camera when a website asks for camera access.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>MacLev uses the microphone when a website asks for microphone access.</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
-    <key>LSUIElement</key>
-    <false/>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSMainNibFile</key>
-    <string></string>
-</dict>
-</plist>
-PLIST
-else
-cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>maclev</string>
-    <key>CFBundleIdentifier</key>
-    <string>ai.aureuma.maclev</string>
-    <key>CFBundleName</key>
-    <string>MacLev</string>
-    <key>CFBundleDisplayName</key>
-    <string>MacLev</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright 2026 Aureuma</string>
     <key>NSCameraUsageDescription</key>
