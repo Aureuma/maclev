@@ -136,7 +136,7 @@ struct BrowserView: View {
             }
             .buttonStyle(.borderedProminent)
 
-            Toggle("Always on top", isOn: $model.isFloating)
+            Toggle("🛸", isOn: $model.isFloating)
                 .toggleStyle(.switch)
         }
         .labelStyle(.iconOnly)
