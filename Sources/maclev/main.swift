@@ -836,6 +836,7 @@ struct BrowserView: View {
 
             Text("🛸")
                 .font(.system(size: 11))
+                .allowsHitTesting(false)
         }
         .help("Always on top")
     }
