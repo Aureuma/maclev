@@ -4,15 +4,20 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 ICON_SOURCE="${ICON_SOURCE:-maclev-logo-square.png}"
+FALLBACK_ICON_PATH="maclev-fallback.icns"
 APP_STAGING_DIR="build/.bundle"
 APP_BUNDLE_PATH="$APP_STAGING_DIR/maclev.app"
 ICONSET_DIR="$APP_STAGING_DIR/AppIcon.iconset"
 ICON_FILE="$APP_BUNDLE_PATH/Contents/Resources/AppIcon.icns"
 OPEN_APP="${OPEN_APP:-0}"
 HAS_ICON=false
+HAS_FALLBACK_ICON=false
 
 if [[ -f "$ICON_SOURCE" ]]; then
     HAS_ICON=true
+elif [[ -f "$FALLBACK_ICON_PATH" ]]; then
+    HAS_FALLBACK_ICON=true
+    echo "Using fallback icon from repository: $FALLBACK_ICON_PATH"
 else
     echo "Custom icon source not found: $ICON_SOURCE (building without custom icon)"
 fi
@@ -34,6 +39,8 @@ if [[ "$HAS_ICON" == "true" ]]; then
 
     cp "$ICON_SOURCE" "$ICONSET_DIR/icon_512x512@2x.png"
     iconutil -c icns "$ICONSET_DIR" -o "$ICON_FILE"
+elif [[ "$HAS_FALLBACK_ICON" == "true" ]]; then
+    cp "$FALLBACK_ICON_PATH" "$ICON_FILE"
 fi
 
 if [[ "$HAS_ICON" == "true" ]]; then
