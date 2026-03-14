@@ -19,13 +19,13 @@ struct MaclevApp: App {
             BrowserView()
                 .environmentObject(model)
                 .environmentObject(settings)
-            .frame(minWidth: 560, minHeight: 380)
+                .frame(minWidth: 520, minHeight: 340)
                 .onAppear {
                     NSApp.setActivationPolicy(.regular)
                     NSApp.activate(ignoringOtherApps: true)
                 }
         }
-        .defaultSize(width: 980, height: 680)
+        .defaultSize(width: 860, height: 620)
 
         Settings {
             SettingsView()
@@ -602,43 +602,95 @@ struct BrowserView: View {
     @FocusState private var addressFieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
-            tabStrip
-            topBar
-            ZStack {
-                    ForEach(model.tabs) { tab in
-                    BrowserWebView(
-                        tabID: tab.id,
-                        settings: model.settings,
-                        onUpdateTitle: { title in
-                            model.updateTitle(title, for: tab.id)
-                        },
-                        addressText: model.addressBinding(for: tab.id),
-                        status: model.statusBinding(for: tab.id),
-                        canGoBack: model.canGoBackBinding(for: tab.id),
-                        canGoForward: model.canGoForwardBinding(for: tab.id),
-                        isLoading: model.isLoadingBinding(for: tab.id),
-                        command: model.commandBinding(for: tab.id),
-                        commandToken: model.commandTokenBinding(for: tab.id)
-                    )
-                    .opacity(model.selectedTabID == tab.id ? 1 : 0)
-                    .allowsHitTesting(model.selectedTabID == tab.id)
-                    .id(tab.id)
-                }
+        ZStack {
+            ForEach(model.tabs) { tab in
+                BrowserWebView(
+                    tabID: tab.id,
+                    settings: model.settings,
+                    onUpdateTitle: { title in
+                        model.updateTitle(title, for: tab.id)
+                    },
+                    addressText: model.addressBinding(for: tab.id),
+                    status: model.statusBinding(for: tab.id),
+                    canGoBack: model.canGoBackBinding(for: tab.id),
+                    canGoForward: model.canGoForwardBinding(for: tab.id),
+                    isLoading: model.isLoadingBinding(for: tab.id),
+                    command: model.commandBinding(for: tab.id),
+                    commandToken: model.commandTokenBinding(for: tab.id)
+                )
+                .opacity(model.selectedTabID == tab.id ? 1 : 0)
+                .allowsHitTesting(model.selectedTabID == tab.id)
+                .id(tab.id)
             }
-            .overlay(
-                WindowBehaviorConfigurator(isFloating: Binding(
-                    get: { model.isFloating },
-                    set: { model.setFloating($0) }
-                ))
+            keyboardShortcutCommands
                 .frame(width: 0, height: 0)
-                .allowsHitTesting(false),
-                alignment: .topLeading
-            )
+                .opacity(0)
         }
-        .padding(12)
+        .overlay(
+            WindowBehaviorConfigurator(isFloating: Binding(
+                get: { model.isFloating },
+                set: { model.setFloating($0) }
+            ))
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false),
+            alignment: .topLeading
+        )
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                titleBarChrome
+            }
+        }
         .onAppear {
             model.loadAddress()
+        }
+    }
+
+    private var titleBarChrome: some View {
+        VStack(spacing: 6) {
+            tabStrip
+            navigationBar
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity)
+        .background(Color.clear)
+    }
+
+    private var keyboardShortcutCommands: some View {
+        HStack {
+            Button("") {
+                addressFieldFocused = true
+            }
+            .keyboardShortcut("l", modifiers: .command)
+
+            Button("") {
+                if model.isLoading {
+                    model.reloadOrStop()
+                }
+            }
+            .keyboardShortcut(.escape, modifiers: [])
+
+            Button("") {
+                model.closeSelectedTab()
+            }
+            .keyboardShortcut("w", modifiers: .command)
+
+            Button("") {
+                model.selectPreviousTab()
+            }
+            .keyboardShortcut("[", modifiers: [.command, .shift])
+
+            Button("") {
+                model.selectNextTab()
+            }
+            .keyboardShortcut("]", modifiers: [.command, .shift])
+
+            ForEach(1..<10, id: \.self) { index in
+                Button("") {
+                    model.selectTab(at: index - 1)
+                }
+                .keyboardShortcut(KeyEquivalent(Character(String(index))), modifiers: .command)
+            }
         }
     }
 
@@ -667,8 +719,8 @@ struct BrowserView: View {
                                 .help("Close tab")
                             }
                         }
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 7)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
                         .contentShape(Rectangle())
                         .background(
                             isSelected
@@ -701,13 +753,13 @@ struct BrowserView: View {
         }
     }
 
-    private var topBar: some View {
-        HStack(spacing: 10) {
+    private var navigationBar: some View {
+        HStack(spacing: 8) {
             HStack(spacing: 0) {
                 Button(action: model.goBack) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 12, weight: .semibold))
-                        .frame(width: 28, height: 20)
+                        .frame(width: 24, height: 20)
                 }
                 .disabled(!model.canGoBack)
                 .keyboardShortcut("[", modifiers: .command)
@@ -718,7 +770,7 @@ struct BrowserView: View {
                 Button(action: model.goForward) {
                     Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 28, height: 20)
+                    .frame(width: 24, height: 20)
                 }
                 .disabled(!model.canGoForward)
                 .keyboardShortcut("]", modifiers: .command)
@@ -737,15 +789,16 @@ struct BrowserView: View {
                     .onSubmit {
                         model.loadAddress()
                     }
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 28)
+                    .font(.system(size: 12))
+                    .padding(.horizontal, 8)
+                    .frame(minHeight: 26)
 
                 Divider()
 
                 Button(action: model.reloadOrStop) {
                     Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
                         .font(.system(size: 11, weight: .semibold))
-                        .frame(width: 26, height: 20)
+                        .frame(width: 24, height: 20)
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut("r", modifiers: .command)
@@ -764,54 +817,8 @@ struct BrowserView: View {
                 Text("🛸")
                     .font(.title2)
             }
-            .toggleStyle(.switch)
-            .help("Always on top")
-
-            Button("") {
-                addressFieldFocused = true
-            }
-            .keyboardShortcut("l", modifiers: .command)
-            .frame(width: 0, height: 0)
-            .opacity(0)
-
-            Button("") {
-                if model.isLoading {
-                    model.reloadOrStop()
-                }
-            }
-            .keyboardShortcut(.escape, modifiers: [])
-            .frame(width: 0, height: 0)
-            .opacity(0)
-
-            Button("") {
-                model.closeSelectedTab()
-            }
-            .keyboardShortcut("w", modifiers: .command)
-            .frame(width: 0, height: 0)
-            .opacity(0)
-
-            Button("") {
-                model.selectPreviousTab()
-            }
-            .keyboardShortcut("[", modifiers: [.command, .shift])
-            .frame(width: 0, height: 0)
-            .opacity(0)
-
-            Button("") {
-                model.selectNextTab()
-            }
-            .keyboardShortcut("]", modifiers: [.command, .shift])
-            .frame(width: 0, height: 0)
-            .opacity(0)
-
-            ForEach(1..<10, id: \.self) { index in
-                Button("") {
-                    model.selectTab(at: index - 1)
-                }
-            .keyboardShortcut(KeyEquivalent(Character(String(index))), modifiers: .command)
-                .frame(width: 0, height: 0)
-                .opacity(0)
-            }
+                .toggleStyle(.switch)
+                .help("Always on top")
         }
     }
 }
