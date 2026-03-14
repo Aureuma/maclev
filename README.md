@@ -31,9 +31,7 @@ This creates `build/maclev.app` with the bundled app icon from `maclev-logo-squa
 
 ## Install with Homebrew
 - `brew tap aureuma/maclev`
-- `brew install maclev`
-
-The Homebrew formula installs `maclev.app` inside the Cellar for that version.
+- `brew install --cask maclev`
 
 Launch it with:
-- `open /usr/local/opt/maclev/maclev.app`
+- `open /Applications/maclev.app`
