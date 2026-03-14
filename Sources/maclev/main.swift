@@ -83,6 +83,7 @@ final class BrowserModel: ObservableObject {
 
 struct BrowserView: View {
     @EnvironmentObject private var model: BrowserModel
+    @FocusState private var addressFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 10) {
@@ -115,18 +116,22 @@ struct BrowserView: View {
                 Image(systemName: "chevron.left")
             }
             .disabled(!model.canGoBack)
+            .keyboardShortcut("[", modifiers: .command)
 
             Button(action: model.goForward) {
                 Image(systemName: "chevron.right")
             }
             .disabled(!model.canGoForward)
+            .keyboardShortcut("]", modifiers: .command)
 
             Button(action: model.reloadOrStop) {
                 Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
             }
+            .keyboardShortcut("r", modifiers: .command)
 
             TextField("https://example.com", text: $model.addressText)
                 .textFieldStyle(.roundedBorder)
+                .focused($addressFieldFocused)
                 .onSubmit {
                     model.loadAddress()
                 }
@@ -137,6 +142,22 @@ struct BrowserView: View {
             }
             .toggleStyle(.switch)
             .help("Always on top")
+
+            Button("") {
+                addressFieldFocused = true
+            }
+            .keyboardShortcut("l", modifiers: .command)
+            .frame(width: 0, height: 0)
+            .opacity(0)
+
+            Button("") {
+                if model.isLoading {
+                    model.reloadOrStop()
+                }
+            }
+            .keyboardShortcut(.escape, modifiers: [])
+            .frame(width: 0, height: 0)
+            .opacity(0)
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.bordered)
