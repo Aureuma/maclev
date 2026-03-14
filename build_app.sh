@@ -44,6 +44,8 @@ cat > build/maclev.app/Contents/Info.plist <<'PLIST'
     <string>maclev</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright 2026 Aureuma</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>

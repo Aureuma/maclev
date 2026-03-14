@@ -9,22 +9,36 @@ struct MaclevApp: App {
         WindowGroup("maclev") {
             BrowserView()
                 .environmentObject(model)
-                .frame(minWidth: 960, minHeight: 640)
+                .frame(minWidth: 980, minHeight: 680)
                 .onAppear {
                     NSApp.setActivationPolicy(.regular)
                     NSApp.activate(ignoringOtherApps: true)
                 }
         }
-        .defaultSize(width: 1120, height: 720)
+        .defaultSize(width: 1180, height: 760)
     }
+}
+
+enum BrowserCommand {
+    case load(URL)
+    case goBack
+    case goForward
+    case reload
+    case stop
 }
 
 @MainActor
 final class BrowserModel: ObservableObject {
     @Published var addressText = "https://www.example.com"
-    @Published var pendingURL: URL?
-    @Published var status = "Ready"
+    @Published var status = "Ready."
     @Published var isFloating = true
+    @Published var canGoBack = false
+    @Published var canGoForward = false
+    @Published var isLoading = false
+    @Published var command: BrowserCommand?
+    @Published var commandToken = UUID()
+
+    let homeURL = URL(string: "https://www.example.com")!
 
     func loadAddress() {
         let raw = addressText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,8 +60,31 @@ final class BrowserModel: ObservableObject {
         }
 
         addressText = url.absoluteString
-        pendingURL = url
-        status = "Loading..."
+        issue(.load(url))
+    }
+
+    func goHome() {
+        addressText = homeURL.absoluteString
+        issue(.load(homeURL))
+    }
+
+    func goBack() {
+        guard canGoBack else { return }
+        issue(.goBack)
+    }
+
+    func goForward() {
+        guard canGoForward else { return }
+        issue(.goForward)
+    }
+
+    func reloadOrStop() {
+        issue(isLoading ? .stop : .reload)
+    }
+
+    private func issue(_ nextCommand: BrowserCommand) {
+        command = nextCommand
+        commandToken = UUID()
     }
 }
 
@@ -56,33 +93,16 @@ struct BrowserView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                TextField("https://example.com", text: $model.addressText)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit {
-                        model.loadAddress()
-                    }
-
-                Button("Go") {
-                    model.loadAddress()
-                }
-                .buttonStyle(.borderedProminent)
-
-                Toggle("Always on top", isOn: $model.isFloating)
-                    .toggleStyle(.switch)
-            }
-
-            HStack {
-                Text(model.status)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-
+            topBar
+            statusRow
             BrowserWebView(
                 addressText: $model.addressText,
-                pendingURL: $model.pendingURL,
-                status: $model.status
+                status: $model.status,
+                canGoBack: $model.canGoBack,
+                canGoForward: $model.canGoForward,
+                isLoading: $model.isLoading,
+                command: $model.command,
+                commandToken: $model.commandToken
             )
             .overlay(
                 WindowBehaviorConfigurator(isFloating: $model.isFloating)
@@ -93,7 +113,58 @@ struct BrowserView: View {
         }
         .padding(12)
         .onAppear {
-            model.loadAddress()
+            model.goHome()
+        }
+    }
+
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            Button(action: model.goBack) {
+                Image(systemName: "chevron.left")
+            }
+            .disabled(!model.canGoBack)
+
+            Button(action: model.goForward) {
+                Image(systemName: "chevron.right")
+            }
+            .disabled(!model.canGoForward)
+
+            Button(action: model.reloadOrStop) {
+                Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
+            }
+
+            Button(action: model.goHome) {
+                Image(systemName: "house")
+            }
+
+            TextField("https://example.com", text: $model.addressText)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit {
+                    model.loadAddress()
+                }
+
+            Button("Go") {
+                model.loadAddress()
+            }
+            .buttonStyle(.borderedProminent)
+
+            Toggle("Always on top", isOn: $model.isFloating)
+                .toggleStyle(.switch)
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.bordered)
+    }
+
+    private var statusRow: some View {
+        HStack {
+            Text(model.status)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            if model.isLoading {
+                ProgressView()
+                    .controlSize(.small)
+            }
         }
     }
 }
@@ -122,13 +193,22 @@ struct WindowBehaviorConfigurator: NSViewRepresentable {
 
 struct BrowserWebView: NSViewRepresentable {
     @Binding var addressText: String
-    @Binding var pendingURL: URL?
     @Binding var status: String
+    @Binding var canGoBack: Bool
+    @Binding var canGoForward: Bool
+    @Binding var isLoading: Bool
+    @Binding var command: BrowserCommand?
+    @Binding var commandToken: UUID
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             updateAddress: { addressText = $0 },
-            updateStatus: { status = $0 }
+            updateStatus: { status = $0 },
+            updateHistory: { back, forward in
+                canGoBack = back
+                canGoForward = forward
+            },
+            updateLoading: { isLoading = $0 }
         )
     }
 
@@ -137,42 +217,94 @@ struct BrowserWebView: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
+        context.coordinator.attach(webView)
         return webView
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
-        if let url = pendingURL {
-            DispatchQueue.main.async {
-                pendingURL = nil
-            }
+        context.coordinator.attach(webView)
+
+        guard let command else { return }
+        DispatchQueue.main.async {
+            self.command = nil
+        }
+
+        switch command {
+        case .load(let url):
             webView.load(URLRequest(url: url))
+        case .goBack:
+            if webView.canGoBack {
+                webView.goBack()
+            }
+        case .goForward:
+            if webView.canGoForward {
+                webView.goForward()
+            }
+        case .reload:
+            webView.reload()
+        case .stop:
+            webView.stopLoading()
+            DispatchQueue.main.async {
+                isLoading = false
+                status = "Stopped."
+            }
         }
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
+        private weak var webView: WKWebView?
         private let updateAddress: (String) -> Void
         private let updateStatus: (String) -> Void
+        private let updateHistory: (Bool, Bool) -> Void
+        private let updateLoading: (Bool) -> Void
 
-        init(updateAddress: @escaping (String) -> Void, updateStatus: @escaping (String) -> Void) {
+        init(
+            updateAddress: @escaping (String) -> Void,
+            updateStatus: @escaping (String) -> Void,
+            updateHistory: @escaping (Bool, Bool) -> Void,
+            updateLoading: @escaping (Bool) -> Void
+        ) {
             self.updateAddress = updateAddress
             self.updateStatus = updateStatus
+            self.updateHistory = updateHistory
+            self.updateLoading = updateLoading
+        }
+
+        func attach(_ webView: WKWebView) {
+            self.webView = webView
+            updateHistory(webView.canGoBack, webView.canGoForward)
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            updateLoading(true)
             updateStatus("Loading...")
+            updateHistory(webView.canGoBack, webView.canGoForward)
+        }
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            if let url = webView.url {
+                updateAddress(url.absoluteString)
+            }
+            updateHistory(webView.canGoBack, webView.canGoForward)
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            updateLoading(false)
             updateAddress(webView.url?.absoluteString ?? "")
             updateStatus("Loaded.")
+            updateHistory(webView.canGoBack, webView.canGoForward)
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            updateLoading(false)
             updateStatus("Failed: \(error.localizedDescription)")
+            updateHistory(webView.canGoBack, webView.canGoForward)
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            updateLoading(false)
             updateStatus("Failed: \(error.localizedDescription)")
+            updateHistory(webView.canGoBack, webView.canGoForward)
         }
     }
 }

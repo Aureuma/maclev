@@ -5,6 +5,7 @@
 ## What it does
 - Opens web pages in a simple desktop browser window.
 - Supports an always-on-top mode for the app's own window.
+- Includes basic browser controls: back, forward, reload/stop, home, and direct URL entry.
 - Uses SwiftUI and WebKit with no third-party dependencies.
 
 ## Notes
