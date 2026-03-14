@@ -959,6 +959,7 @@ struct BrowserWebView: NSViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         private weak var webView: WKWebView?
         private var lastCommandToken: UUID?
+        private var urlObservation: NSKeyValueObservation?
         private let settings: SettingsStore
         private let updateAddress: (String) -> Void
         private let updateStatus: (String) -> Void
@@ -983,6 +984,23 @@ struct BrowserWebView: NSViewRepresentable {
         }
 
         func attach(_ webView: WKWebView) {
+            if self.webView !== webView {
+                urlObservation?.invalidate()
+                urlObservation = webView.observe(\.url, options: [.initial, .new]) { [weak self] observedWebView, _ in
+                    guard let self else { return }
+
+                    DispatchQueue.main.async {
+                        let currentAddress = observedWebView.url?.absoluteString ?? ""
+                        self.updateAddress(currentAddress)
+                        self.updateHistory(observedWebView.canGoBack, observedWebView.canGoForward)
+
+                        if let host = observedWebView.url?.host {
+                            self.settings.register(host: host)
+                        }
+                    }
+                }
+            }
+
             self.webView = webView
             DispatchQueue.main.async {
                 self.updateHistory(webView.canGoBack, webView.canGoForward)
