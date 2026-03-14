@@ -603,6 +603,10 @@ struct BrowserView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            fullWidthTopBar
+
+            Divider()
+
             tabStrip
 
             Divider()
@@ -641,25 +645,26 @@ struct BrowserView: View {
             .allowsHitTesting(false),
             alignment: .topLeading
         )
-        .toolbarRole(.editor)
-        .toolbar {
-            ToolbarItemGroup(placement: .navigation) {
-                backForwardControls
-            }
-
-            ToolbarItem(placement: .principal) {
-                addressBar
-                    .frame(minWidth: 320, idealWidth: 560, maxWidth: 760)
-            }
-
-            ToolbarItemGroup(placement: .primaryAction) {
-                floatingToggle
-                newTabButton
-            }
-        }
         .onAppear {
             model.loadAddress()
         }
+    }
+
+    private var fullWidthTopBar: some View {
+        HStack(spacing: 10) {
+            backForwardControls
+
+            addressBar
+
+            floatingToggle
+            newTabButton
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+        .padding(.leading, 76)
+        .padding(.trailing, 12)
+        .frame(maxWidth: .infinity)
+        .background(.regularMaterial)
     }
 
     private var keyboardShortcutCommands: some View {
