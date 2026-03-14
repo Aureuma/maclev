@@ -19,7 +19,7 @@ struct MaclevApp: App {
             BrowserView()
                 .environmentObject(model)
                 .environmentObject(settings)
-                .frame(minWidth: 520, minHeight: 340)
+            .frame(minWidth: 560, minHeight: 380)
                 .onAppear {
                     NSApp.setActivationPolicy(.regular)
                     NSApp.activate(ignoringOtherApps: true)
@@ -42,6 +42,18 @@ enum BrowserCommand {
     case goForward
     case reload
     case stop
+}
+
+struct BrowserTabState: Identifiable {
+    let id = UUID()
+    var title: String
+    var addressText: String
+    var status: String
+    var canGoBack = false
+    var canGoForward = false
+    var isLoading = false
+    var command: BrowserCommand?
+    var commandToken = UUID()
 }
 
 enum PermissionPolicy: String, Codable, CaseIterable, Identifiable {
@@ -257,27 +269,172 @@ final class SettingsStore: ObservableObject {
 
 @MainActor
 final class BrowserModel: ObservableObject {
-    @Published var addressText: String
-    @Published var status = "Ready."
-    @Published var isFloating: Bool
-    @Published var canGoBack = false
-    @Published var canGoForward = false
-    @Published var isLoading = false
-    @Published var command: BrowserCommand?
-    @Published var commandToken = UUID()
-
     let settings: SettingsStore
+
+    @Published var tabs: [BrowserTabState]
+    @Published var selectedTabID: UUID
+    @Published var isFloating: Bool
 
     init(settings: SettingsStore) {
         self.settings = settings
-        self.addressText = settings.startPage
-        self.isFloating = settings.launchFloating
+        let firstTab = BrowserTabState(
+            title: "New Tab",
+            addressText: settings.startPage,
+            status: "Ready.",
+            canGoBack: false,
+            canGoForward: false,
+            isLoading: false
+        )
+        tabs = [firstTab]
+        selectedTabID = firstTab.id
+        isFloating = settings.launchFloating
+    }
+
+    private var untitledTabTitle: String {
+        "New Tab"
+    }
+
+    var selectedIndex: Int? {
+        tabs.firstIndex(where: { $0.id == selectedTabID })
+    }
+
+    private func index(for id: UUID) -> Int? {
+        tabs.firstIndex(where: { $0.id == id })
+    }
+
+    private func state(for id: UUID) -> BrowserTabState? {
+        guard let tabIndex = index(for: id) else {
+            return nil
+        }
+        return tabs[tabIndex]
+    }
+
+    var selectedTab: BrowserTabState {
+        guard
+            let selectedIndex,
+            tabs.indices.contains(selectedIndex)
+        else {
+            return BrowserTabState(
+                title: untitledTabTitle,
+                addressText: settings.startPage,
+                status: "Ready.",
+                canGoBack: false,
+                canGoForward: false,
+                isLoading: false
+            )
+        }
+        return tabs[selectedIndex]
+    }
+
+    var canGoBack: Bool {
+        selectedTab.canGoBack
+    }
+
+    var canGoForward: Bool {
+        selectedTab.canGoForward
+    }
+
+    var isLoading: Bool {
+        selectedTab.isLoading
+    }
+
+    var addressText: String {
+        selectedTab.addressText
+    }
+
+    var status: String {
+        selectedTab.status
+    }
+
+    var command: BrowserCommand? {
+        selectedTab.command
+    }
+
+    var commandToken: UUID {
+        selectedTab.commandToken
+    }
+
+    func selectTab(_ id: UUID) {
+        guard index(for: id) != nil else { return }
+        selectedTabID = id
+    }
+
+    func openTab() {
+        let newTab = BrowserTabState(
+            title: untitledTabTitle,
+            addressText: settings.startPage,
+            status: "Ready.",
+            canGoBack: false,
+            canGoForward: false,
+            isLoading: false
+        )
+        tabs.append(newTab)
+        selectedTabID = newTab.id
+    }
+
+    func openTab(with address: String?) {
+        let normalized = address?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nextAddress = normalized?.isEmpty == false ? normalized! : settings.startPage
+
+        let newTab = BrowserTabState(
+            title: untitledTabTitle,
+            addressText: nextAddress,
+            status: "Ready.",
+            canGoBack: false,
+            canGoForward: false,
+            isLoading: false
+        )
+
+        tabs.append(newTab)
+        selectedTabID = newTab.id
+
+        if let address = URL(string: nextAddress) {
+            issue(.load(address), for: newTab.id)
+        }
+    }
+
+    func closeSelectedTab() {
+        closeTab(selectedTabID)
+    }
+
+    func closeTab(_ id: UUID) {
+        guard tabs.count > 1 else { return }
+        guard let removedIndex = index(for: id) else { return }
+
+        tabs.remove(at: removedIndex)
+
+        if selectedTabID == id {
+            let fallbackIndex = min(max(0, removedIndex - 1), tabs.count - 1)
+            selectedTabID = tabs[fallbackIndex].id
+        }
+    }
+
+    func selectNextTab() {
+        guard let selectedIndex else { return }
+        let next = min(selectedIndex + 1, tabs.count - 1)
+        selectedTabID = tabs[next].id
+    }
+
+    func selectPreviousTab() {
+        guard let selectedIndex else { return }
+        let previous = max(selectedIndex - 1, 0)
+        selectedTabID = tabs[previous].id
+    }
+
+    func selectTab(at index: Int) {
+        guard tabs.indices.contains(index) else { return }
+        selectedTabID = tabs[index].id
     }
 
     func loadAddress() {
-        let raw = addressText.trimmingCharacters(in: .whitespacesAndNewlines)
+        loadAddress(for: selectedTabID)
+    }
+
+    func loadAddress(for tabID: UUID) {
+        guard let tabIndex = index(for: tabID) else { return }
+        let raw = tabs[tabIndex].addressText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else {
-            status = "Address is empty."
+            setStatus("Address is empty.", for: tabID)
             return
         }
 
@@ -289,27 +446,29 @@ final class BrowserModel: ObservableObject {
         guard let url = URL(string: candidate),
               let scheme = url.scheme?.lowercased(),
               ["http", "https", "file"].contains(scheme) else {
-            status = "Enter a valid http, https, or file URL."
+            setStatus("Enter a valid http, https, or file URL.", for: tabID)
             return
         }
 
-        addressText = url.absoluteString
+        setAddress(url.absoluteString, for: tabID)
         settings.startPage = url.absoluteString
-        issue(.load(url))
+        issue(.load(url), for: tabID)
     }
 
     func goBack() {
-        guard canGoBack else { return }
-        issue(.goBack)
+        guard let selectedIndex else { return }
+        guard tabs[selectedIndex].canGoBack else { return }
+        issue(.goBack, for: selectedTabID)
     }
 
     func goForward() {
-        guard canGoForward else { return }
-        issue(.goForward)
+        guard let selectedIndex else { return }
+        guard tabs[selectedIndex].canGoForward else { return }
+        issue(.goForward, for: selectedTabID)
     }
 
     func reloadOrStop() {
-        issue(isLoading ? .stop : .reload)
+        issue(isLoading ? .stop : .reload, for: selectedTabID)
     }
 
     func setFloating(_ value: Bool) {
@@ -317,9 +476,124 @@ final class BrowserModel: ObservableObject {
         settings.launchFloating = value
     }
 
-    private func issue(_ nextCommand: BrowserCommand) {
-        command = nextCommand
-        commandToken = UUID()
+    func addressBinding(for tabID: UUID) -> Binding<String> {
+        Binding(
+            get: { self.state(for: tabID)?.addressText ?? "" },
+            set: { newValue in
+                self.update(tabID) { tab in
+                    tab.addressText = newValue
+                }
+            }
+        )
+    }
+
+    func statusBinding(for tabID: UUID) -> Binding<String> {
+        Binding(
+            get: { self.state(for: tabID)?.status ?? "" },
+            set: { newValue in
+                self.update(tabID) { tab in
+                    tab.status = newValue
+                }
+            }
+        )
+    }
+
+    func canGoBackBinding(for tabID: UUID) -> Binding<Bool> {
+        Binding(
+            get: { self.state(for: tabID)?.canGoBack ?? false },
+            set: { newValue in
+                self.update(tabID) { tab in
+                    tab.canGoBack = newValue
+                }
+            }
+        )
+    }
+
+    func canGoForwardBinding(for tabID: UUID) -> Binding<Bool> {
+        Binding(
+            get: { self.state(for: tabID)?.canGoForward ?? false },
+            set: { newValue in
+                self.update(tabID) { tab in
+                    tab.canGoForward = newValue
+                }
+            }
+        )
+    }
+
+    func isLoadingBinding(for tabID: UUID) -> Binding<Bool> {
+        Binding(
+            get: { self.state(for: tabID)?.isLoading ?? false },
+            set: { newValue in
+                self.update(tabID) { tab in
+                    tab.isLoading = newValue
+                }
+            }
+        )
+    }
+
+    func commandBinding(for tabID: UUID) -> Binding<BrowserCommand?> {
+        Binding(
+            get: { self.state(for: tabID)?.command },
+            set: { newValue in
+                self.update(tabID) { tab in
+                    tab.command = newValue
+                }
+            }
+        )
+    }
+
+    func commandTokenBinding(for tabID: UUID) -> Binding<UUID> {
+        Binding(
+            get: { self.state(for: tabID)?.commandToken ?? UUID() },
+            set: { newValue in
+                self.update(tabID) { tab in
+                    tab.commandToken = newValue
+                }
+            }
+        )
+    }
+
+    func updateTitle(_ title: String, for tabID: UUID) {
+        let fallback = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = fallback.isEmpty ? untitledTabTitle : fallback
+        update(tabID) {
+            $0.title = trimmed
+        }
+    }
+
+    func setAddress(_ address: String, for tabID: UUID) {
+        update(tabID) { $0.addressText = address }
+    }
+
+    func setStatus(_ value: String, for tabID: UUID) {
+        update(tabID) { $0.status = value }
+    }
+
+    func setCanGo(_ canGoBack: Bool, _ canGoForward: Bool, for tabID: UUID) {
+        update(tabID) {
+            $0.canGoBack = canGoBack
+            $0.canGoForward = canGoForward
+        }
+    }
+
+    func setLoading(_ value: Bool, for tabID: UUID) {
+        update(tabID) { $0.isLoading = value }
+    }
+
+    func clearCommand(for tabID: UUID) {
+        update(tabID) { $0.command = nil }
+    }
+
+    private func issue(_ nextCommand: BrowserCommand, for tabID: UUID) {
+        update(tabID) {
+            $0.command = nextCommand
+            $0.commandToken = UUID()
+        }
+    }
+
+    private func update(_ id: UUID, _ apply: (inout BrowserTabState) -> Void) {
+        guard let index = index(for: id) else { return }
+        apply(&tabs[index])
     }
 }
 
@@ -328,18 +602,30 @@ struct BrowserView: View {
     @FocusState private var addressFieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
+            tabStrip
             topBar
-            BrowserWebView(
-                settings: model.settings,
-                addressText: $model.addressText,
-                status: $model.status,
-                canGoBack: $model.canGoBack,
-                canGoForward: $model.canGoForward,
-                isLoading: $model.isLoading,
-                command: $model.command,
-                commandToken: $model.commandToken
-            )
+            ZStack {
+                    ForEach(model.tabs) { tab in
+                    BrowserWebView(
+                        tabID: tab.id,
+                        settings: model.settings,
+                        onUpdateTitle: { title in
+                            model.updateTitle(title, for: tab.id)
+                        },
+                        addressText: model.addressBinding(for: tab.id),
+                        status: model.statusBinding(for: tab.id),
+                        canGoBack: model.canGoBackBinding(for: tab.id),
+                        canGoForward: model.canGoForwardBinding(for: tab.id),
+                        isLoading: model.isLoadingBinding(for: tab.id),
+                        command: model.commandBinding(for: tab.id),
+                        commandToken: model.commandTokenBinding(for: tab.id)
+                    )
+                    .opacity(model.selectedTabID == tab.id ? 1 : 0)
+                    .allowsHitTesting(model.selectedTabID == tab.id)
+                    .id(tab.id)
+                }
+            }
             .overlay(
                 WindowBehaviorConfigurator(isFloating: Binding(
                     get: { model.isFloating },
@@ -356,13 +642,72 @@ struct BrowserView: View {
         }
     }
 
+    private var tabStrip: some View {
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(model.tabs) { tab in
+                        let isSelected = model.selectedTabID == tab.id
+                        HStack(spacing: 8) {
+                            Text(tab.title)
+                                .font(.system(size: 12.5, weight: .semibold))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .padding(.leading, 2)
+
+                            if model.tabs.count > 1 {
+                                Button {
+                                    model.closeTab(tab.id)
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .frame(width: 14, height: 14)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Close tab")
+                            }
+                        }
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                        .background(
+                            isSelected
+                                ? Color.accentColor.opacity(0.16)
+                                : Color(NSColor.windowBackgroundColor).opacity(0.65)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .onTapGesture {
+                            model.selectTab(tab.id)
+                        }
+                        .help(tab.title)
+                    }
+                }
+            }
+
+            Button {
+                model.openTab()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.borderless)
+            .help("New Tab")
+            .keyboardShortcut("t", modifiers: .command)
+        }
+    }
+
     private var topBar: some View {
         HStack(spacing: 10) {
             HStack(spacing: 0) {
                 Button(action: model.goBack) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 12, weight: .semibold))
-                        .frame(width: 24, height: 20)
+                        .frame(width: 28, height: 20)
                 }
                 .disabled(!model.canGoBack)
                 .keyboardShortcut("[", modifiers: .command)
@@ -372,8 +717,8 @@ struct BrowserView: View {
 
                 Button(action: model.goForward) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .frame(width: 24, height: 20)
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 28, height: 20)
                 }
                 .disabled(!model.canGoForward)
                 .keyboardShortcut("]", modifiers: .command)
@@ -386,7 +731,7 @@ struct BrowserView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             HStack(spacing: 0) {
-                TextField("https://www.nasa.gov", text: $model.addressText)
+                TextField("https://www.nasa.gov", text: model.addressBinding(for: model.selectedTabID))
                     .textFieldStyle(.plain)
                     .focused($addressFieldFocused)
                     .onSubmit {
@@ -437,6 +782,36 @@ struct BrowserView: View {
             .keyboardShortcut(.escape, modifiers: [])
             .frame(width: 0, height: 0)
             .opacity(0)
+
+            Button("") {
+                model.closeSelectedTab()
+            }
+            .keyboardShortcut("w", modifiers: .command)
+            .frame(width: 0, height: 0)
+            .opacity(0)
+
+            Button("") {
+                model.selectPreviousTab()
+            }
+            .keyboardShortcut("[", modifiers: [.command, .shift])
+            .frame(width: 0, height: 0)
+            .opacity(0)
+
+            Button("") {
+                model.selectNextTab()
+            }
+            .keyboardShortcut("]", modifiers: [.command, .shift])
+            .frame(width: 0, height: 0)
+            .opacity(0)
+
+            ForEach(1..<10, id: \.self) { index in
+                Button("") {
+                    model.selectTab(at: index - 1)
+                }
+            .keyboardShortcut(KeyEquivalent(Character(String(index))), modifiers: .command)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+            }
         }
     }
 }
@@ -459,12 +834,16 @@ struct WindowBehaviorConfigurator: NSViewRepresentable {
         window.level = isFloating ? .floating : .normal
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.hidesOnDeactivate = false
-        window.titleVisibility = .visible
+        window.titleVisibility = .hidden
+        window.toolbarStyle = .unified
+        window.styleMask.insert(.fullSizeContentView)
     }
 }
 
 struct BrowserWebView: NSViewRepresentable {
+    let tabID: UUID
     let settings: SettingsStore
+    let onUpdateTitle: (String) -> Void
     @Binding var addressText: String
     @Binding var status: String
     @Binding var canGoBack: Bool
@@ -482,7 +861,8 @@ struct BrowserWebView: NSViewRepresentable {
                 canGoBack = back
                 canGoForward = forward
             },
-            updateLoading: { isLoading = $0 }
+            updateLoading: { isLoading = $0 },
+            updateTitle: onUpdateTitle
         )
     }
 
@@ -544,19 +924,22 @@ struct BrowserWebView: NSViewRepresentable {
         private let updateStatus: (String) -> Void
         private let updateHistory: (Bool, Bool) -> Void
         private let updateLoading: (Bool) -> Void
+        private let updateTitle: (String) -> Void
 
         init(
             settings: SettingsStore,
             updateAddress: @escaping (String) -> Void,
             updateStatus: @escaping (String) -> Void,
             updateHistory: @escaping (Bool, Bool) -> Void,
-            updateLoading: @escaping (Bool) -> Void
+            updateLoading: @escaping (Bool) -> Void,
+            updateTitle: @escaping (String) -> Void
         ) {
             self.settings = settings
             self.updateAddress = updateAddress
             self.updateStatus = updateStatus
             self.updateHistory = updateHistory
             self.updateLoading = updateLoading
+            self.updateTitle = updateTitle
         }
 
         func attach(_ webView: WKWebView) {
@@ -596,6 +979,9 @@ struct BrowserWebView: NSViewRepresentable {
             DispatchQueue.main.async {
                 self.updateLoading(false)
                 self.updateAddress(webView.url?.absoluteString ?? "")
+                if let title = webView.title, !title.isEmpty {
+                    self.updateTitle(title)
+                }
                 self.updateStatus("Loaded.")
                 self.updateHistory(webView.canGoBack, webView.canGoForward)
             }
