@@ -791,7 +791,7 @@ struct BrowserView: View {
                     }
                     .font(.system(size: 12))
                     .padding(.horizontal, 8)
-                    .frame(minHeight: 26)
+                    .frame(minHeight: 24, maxWidth: .infinity)
 
                 Divider()
 
@@ -804,6 +804,7 @@ struct BrowserView: View {
                 .keyboardShortcut("r", modifiers: .command)
                 .help(model.isLoading ? "Stop" : "Reload")
             }
+            .frame(maxWidth: .infinity)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(Color(NSColor.separatorColor).opacity(0.32), lineWidth: 1)
@@ -815,11 +816,15 @@ struct BrowserView: View {
                 set: { model.setFloating($0) }
             )) {
                 Text("🛸")
-                    .font(.title2)
+                    .font(.system(size: 11))
             }
                 .toggleStyle(.switch)
+                .controlSize(.mini)
+                .scaleEffect(0.88)
+                .labelsHidden()
                 .help("Always on top")
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
