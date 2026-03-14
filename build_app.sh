@@ -4,9 +4,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 ICON_SOURCE="maclev-logo-square.png"
-ICONSET_DIR="build/AppIcon.iconset"
-ICON_FILE="build/maclev.app/Contents/Resources/AppIcon.icns"
-OPEN_APP="${OPEN_APP:-1}"
+APP_STAGING_DIR="build/.bundle"
+APP_BUNDLE_PATH="$APP_STAGING_DIR/maclev.app"
+ICONSET_DIR="$APP_STAGING_DIR/AppIcon.iconset"
+ICON_FILE="$APP_BUNDLE_PATH/Contents/Resources/AppIcon.icns"
+OPEN_APP="${OPEN_APP:-0}"
 
 if [[ ! -f "$ICON_SOURCE" ]]; then
     echo "Missing app icon source: $ICON_SOURCE" >&2
@@ -14,8 +16,9 @@ if [[ ! -f "$ICON_SOURCE" ]]; then
 fi
 
 swift build --disable-sandbox -c release
-mkdir -p build/maclev.app/Contents/{MacOS,Resources}
-cp .build/release/maclev build/maclev.app/Contents/MacOS/maclev
+rm -rf "$APP_STAGING_DIR"
+mkdir -p "$APP_BUNDLE_PATH/Contents/"{MacOS,Resources}
+cp .build/release/maclev "$APP_BUNDLE_PATH/Contents/MacOS/maclev"
 
 rm -rf "$ICONSET_DIR"
 mkdir -p "$ICONSET_DIR"
@@ -29,7 +32,7 @@ done
 cp "$ICON_SOURCE" "$ICONSET_DIR/icon_512x512@2x.png"
 iconutil -c icns "$ICONSET_DIR" -o "$ICON_FILE"
 
-cat > build/maclev.app/Contents/Info.plist <<'PLIST'
+cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -62,8 +65,8 @@ cat > build/maclev.app/Contents/Info.plist <<'PLIST'
 </plist>
 PLIST
 
-chmod +x build/maclev.app/Contents/MacOS/maclev
+chmod +x "$APP_BUNDLE_PATH/Contents/MacOS/maclev"
 
 if [[ "$OPEN_APP" == "1" ]]; then
-    open build/maclev.app
+    open "$APP_BUNDLE_PATH"
 fi
