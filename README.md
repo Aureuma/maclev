@@ -28,7 +28,7 @@
 - `cd ~/Downloads/maclev`
 - `./build_app.sh`
 
-This creates a local app bundle in `build/.bundle/maclev.app` with the bundled app icon from `maclev-logo-square.png`.
+This creates a local app bundle in `build/.bundle/maclev.app`. Set `ICON_SOURCE` (or provide `maclev-logo-square.png` in the repo root) to use a custom icon.
 
 ## Install with Homebrew
 - `brew tap aureuma/maclev`
