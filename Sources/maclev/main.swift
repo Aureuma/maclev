@@ -94,7 +94,6 @@ struct BrowserView: View {
     var body: some View {
         VStack(spacing: 10) {
             topBar
-            statusRow
             BrowserWebView(
                 addressText: $model.addressText,
                 status: $model.status,
@@ -155,18 +154,6 @@ struct BrowserView: View {
         .buttonStyle(.bordered)
     }
 
-    private var statusRow: some View {
-        HStack {
-            Text(model.status)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Spacer()
-            if model.isLoading {
-                ProgressView()
-                    .controlSize(.small)
-            }
-        }
-    }
 }
 
 struct WindowBehaviorConfigurator: NSViewRepresentable {
