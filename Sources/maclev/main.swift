@@ -659,8 +659,7 @@ struct BrowserView: View {
             floatingToggle
             newTabButton
         }
-        .padding(.top, 6)
-        .padding(.bottom, 6)
+        .frame(height: 34)
         .padding(.leading, 76)
         .padding(.trailing, 12)
         .frame(maxWidth: .infinity)
@@ -752,8 +751,7 @@ struct BrowserView: View {
             }
         }
         .padding(.horizontal, 10)
-        .padding(.top, 6)
-        .padding(.bottom, 7)
+        .frame(height: 34)
         .background(.regularMaterial)
     }
 
@@ -784,6 +782,7 @@ struct BrowserView: View {
                 .stroke(Color(NSColor.separatorColor).opacity(0.32), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .frame(height: 20)
     }
 
     private var addressBar: some View {
@@ -796,7 +795,7 @@ struct BrowserView: View {
                 }
                 .font(.system(size: 12))
                 .padding(.horizontal, 9)
-                .frame(maxWidth: .infinity, minHeight: 24)
+                .frame(maxWidth: .infinity)
 
             Divider()
 
@@ -816,6 +815,7 @@ struct BrowserView: View {
                 .stroke(Color(NSColor.separatorColor).opacity(0.34), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 11))
+        .frame(height: 24)
     }
 
     private var floatingToggle: some View {
