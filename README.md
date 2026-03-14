@@ -1,6 +1,6 @@
 # MacLev
 
-`MacLev` is a lightweight floating browser for macOS.
+Levitating "Always on top" browser for macOS.
 
 ## What it does
 - Opens web pages in a simple desktop browser window.
