@@ -602,29 +602,35 @@ struct BrowserView: View {
     @FocusState private var addressFieldFocused: Bool
 
     var body: some View {
-        ZStack {
-            ForEach(model.tabs) { tab in
-                BrowserWebView(
-                    tabID: tab.id,
-                    settings: model.settings,
-                    onUpdateTitle: { title in
-                        model.updateTitle(title, for: tab.id)
-                    },
-                    addressText: model.addressBinding(for: tab.id),
-                    status: model.statusBinding(for: tab.id),
-                    canGoBack: model.canGoBackBinding(for: tab.id),
-                    canGoForward: model.canGoForwardBinding(for: tab.id),
-                    isLoading: model.isLoadingBinding(for: tab.id),
-                    command: model.commandBinding(for: tab.id),
-                    commandToken: model.commandTokenBinding(for: tab.id)
-                )
-                .opacity(model.selectedTabID == tab.id ? 1 : 0)
-                .allowsHitTesting(model.selectedTabID == tab.id)
-                .id(tab.id)
+        VStack(spacing: 0) {
+            tabStrip
+
+            Divider()
+
+            ZStack {
+                ForEach(model.tabs) { tab in
+                    BrowserWebView(
+                        tabID: tab.id,
+                        settings: model.settings,
+                        onUpdateTitle: { title in
+                            model.updateTitle(title, for: tab.id)
+                        },
+                        addressText: model.addressBinding(for: tab.id),
+                        status: model.statusBinding(for: tab.id),
+                        canGoBack: model.canGoBackBinding(for: tab.id),
+                        canGoForward: model.canGoForwardBinding(for: tab.id),
+                        isLoading: model.isLoadingBinding(for: tab.id),
+                        command: model.commandBinding(for: tab.id),
+                        commandToken: model.commandTokenBinding(for: tab.id)
+                    )
+                    .opacity(model.selectedTabID == tab.id ? 1 : 0)
+                    .allowsHitTesting(model.selectedTabID == tab.id)
+                    .id(tab.id)
+                }
+                keyboardShortcutCommands
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
             }
-            keyboardShortcutCommands
-                .frame(width: 0, height: 0)
-                .opacity(0)
         }
         .overlay(
             WindowBehaviorConfigurator(isFloating: Binding(
@@ -635,25 +641,25 @@ struct BrowserView: View {
             .allowsHitTesting(false),
             alignment: .topLeading
         )
+        .toolbarRole(.editor)
         .toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                backForwardControls
+            }
+
             ToolbarItem(placement: .principal) {
-                titleBarChrome
+                addressBar
+                    .frame(minWidth: 320, idealWidth: 560, maxWidth: 760)
+            }
+
+            ToolbarItemGroup(placement: .primaryAction) {
+                floatingToggle
+                newTabButton
             }
         }
         .onAppear {
             model.loadAddress()
         }
-    }
-
-    private var titleBarChrome: some View {
-        VStack(spacing: 6) {
-            tabStrip
-            navigationBar
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity)
-        .background(Color.clear)
     }
 
     private var keyboardShortcutCommands: some View {
@@ -739,92 +745,100 @@ struct BrowserView: View {
                     }
                 }
             }
-
-            Button {
-                model.openTab()
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 20, height: 20)
-            }
-            .buttonStyle(.borderless)
-            .help("New Tab")
-            .keyboardShortcut("t", modifiers: .command)
         }
+        .padding(.horizontal, 10)
+        .padding(.top, 6)
+        .padding(.bottom, 7)
+        .background(.regularMaterial)
     }
 
-    private var navigationBar: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 0) {
-                Button(action: model.goBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 12, weight: .semibold))
-                        .frame(width: 24, height: 20)
-                }
-                .disabled(!model.canGoBack)
-                .keyboardShortcut("[", modifiers: .command)
-                .buttonStyle(.plain)
-
-                Divider()
-
-                Button(action: model.goForward) {
-                    Image(systemName: "chevron.right")
+    private var backForwardControls: some View {
+        HStack(spacing: 0) {
+            Button(action: model.goBack) {
+                Image(systemName: "chevron.left")
                     .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 24, height: 20)
+                    .frame(width: 26, height: 22)
+            }
+            .disabled(!model.canGoBack)
+            .keyboardShortcut("[", modifiers: .command)
+            .buttonStyle(.plain)
+
+            Divider()
+
+            Button(action: model.goForward) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 26, height: 22)
+            }
+            .disabled(!model.canGoForward)
+            .keyboardShortcut("]", modifiers: .command)
+            .buttonStyle(.plain)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(NSColor.separatorColor).opacity(0.32), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var addressBar: some View {
+        HStack(spacing: 0) {
+            TextField("https://www.nasa.gov", text: model.addressBinding(for: model.selectedTabID))
+                .textFieldStyle(.plain)
+                .focused($addressFieldFocused)
+                .onSubmit {
+                    model.loadAddress()
                 }
-                .disabled(!model.canGoForward)
-                .keyboardShortcut("]", modifiers: .command)
-                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: 28)
+
+            Divider()
+
+            Button(action: model.reloadOrStop) {
+                Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 28, height: 22)
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color(NSColor.separatorColor).opacity(0.32), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            HStack(spacing: 0) {
-                TextField("https://www.nasa.gov", text: model.addressBinding(for: model.selectedTabID))
-                    .textFieldStyle(.plain)
-                    .focused($addressFieldFocused)
-                    .onSubmit {
-                        model.loadAddress()
-                    }
-                    .font(.system(size: 12))
-                    .padding(.horizontal, 8)
-                    .frame(maxWidth: .infinity, minHeight: 24)
-
-                Divider()
-
-                Button(action: model.reloadOrStop) {
-                    Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
-                        .font(.system(size: 11, weight: .semibold))
-                        .frame(width: 24, height: 20)
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("r", modifiers: .command)
-                .help(model.isLoading ? "Stop" : "Reload")
-            }
-            .frame(maxWidth: .infinity)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color(NSColor.separatorColor).opacity(0.32), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            Toggle(isOn: Binding(
-                get: { model.isFloating },
-                set: { model.setFloating($0) }
-            )) {
-                Text("🛸")
-                    .font(.system(size: 11))
-            }
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .scaleEffect(0.88)
-                .labelsHidden()
-                .help("Always on top")
+            .buttonStyle(.plain)
+            .keyboardShortcut("r", modifiers: .command)
+            .help(model.isLoading ? "Stop" : "Reload")
         }
         .frame(maxWidth: .infinity)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.82))
+        .overlay(
+            RoundedRectangle(cornerRadius: 13)
+                .stroke(Color(NSColor.separatorColor).opacity(0.34), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 13))
+    }
+
+    private var floatingToggle: some View {
+        Toggle(isOn: Binding(
+            get: { model.isFloating },
+            set: { model.setFloating($0) }
+        )) {
+            Text("🛸")
+                .font(.system(size: 11))
+        }
+        .toggleStyle(.switch)
+        .controlSize(.mini)
+        .scaleEffect(0.84)
+        .labelsHidden()
+        .help("Always on top")
+    }
+
+    private var newTabButton: some View {
+        Button {
+            model.openTab()
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 11, weight: .semibold))
+                .frame(width: 22, height: 22)
+        }
+        .buttonStyle(.borderless)
+        .help("New Tab")
+        .keyboardShortcut("t", modifiers: .command)
     }
 }
 
