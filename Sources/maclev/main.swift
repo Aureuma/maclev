@@ -116,7 +116,7 @@ final class SettingsStore: ObservableObject {
         let appDirectory = supportDirectory.appendingPathComponent("maclev", isDirectory: true)
         storageURL = appDirectory.appendingPathComponent("settings.json")
 
-        startPage = "https://www.example.com"
+        startPage = "https://www.nasa.gov"
         launchFloating = true
         defaultCameraPolicy = .ask
         defaultMicrophonePolicy = .ask
@@ -374,7 +374,7 @@ struct BrowserView: View {
             }
             .keyboardShortcut("r", modifiers: .command)
 
-            TextField("https://example.com", text: $model.addressText)
+            TextField("https://www.nasa.gov", text: $model.addressText)
                 .textFieldStyle(.roundedBorder)
                 .focused($addressFieldFocused)
                 .onSubmit {
@@ -787,7 +787,7 @@ struct SettingsView: View {
     private var generalTab: some View {
         VStack(alignment: .leading, spacing: 18) {
             SettingsSection(icon: AppSVG.home, title: "Start") {
-                TextField("https://example.com", text: $settings.startPage)
+                TextField("https://www.nasa.gov", text: $settings.startPage)
                     .textFieldStyle(.roundedBorder)
             }
 
