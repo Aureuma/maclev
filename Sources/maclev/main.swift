@@ -225,9 +225,7 @@ struct BrowserWebView: NSViewRepresentable {
         context.coordinator.attach(webView)
 
         guard let command else { return }
-        DispatchQueue.main.async {
-            self.command = nil
-        }
+        guard context.coordinator.consumeCommandToken(commandToken) else { return }
 
         switch command {
         case .load(let url):
@@ -245,14 +243,24 @@ struct BrowserWebView: NSViewRepresentable {
         case .stop:
             webView.stopLoading()
             DispatchQueue.main.async {
-                isLoading = false
-                status = "Stopped."
+                self.command = nil
+                self.isLoading = false
+                self.status = "Stopped."
             }
+        }
+
+        if case .stop = command {
+            return
+        }
+
+        DispatchQueue.main.async {
+            self.command = nil
         }
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         private weak var webView: WKWebView?
+        private var lastCommandToken: UUID?
         private let updateAddress: (String) -> Void
         private let updateStatus: (String) -> Void
         private let updateHistory: (Bool, Bool) -> Void
@@ -272,7 +280,17 @@ struct BrowserWebView: NSViewRepresentable {
 
         func attach(_ webView: WKWebView) {
             self.webView = webView
-            updateHistory(webView.canGoBack, webView.canGoForward)
+            DispatchQueue.main.async {
+                self.updateHistory(webView.canGoBack, webView.canGoForward)
+            }
+        }
+
+        func consumeCommandToken(_ token: UUID) -> Bool {
+            if lastCommandToken == token {
+                return false
+            }
+            lastCommandToken = token
+            return true
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
