@@ -37,7 +37,7 @@ cat > build/maclev.app/Contents/Info.plist <<'PLIST'
     <key>CFBundleExecutable</key>
     <string>maclev</string>
     <key>CFBundleIdentifier</key>
-    <string>com.aureuma.maclev</string>
+    <string>ai.aureuma.maclev</string>
     <key>CFBundleName</key>
     <string>maclev</string>
     <key>CFBundleDisplayName</key>
