@@ -46,6 +46,10 @@ cat > build/maclev.app/Contents/Info.plist <<'PLIST'
     <string>AppIcon</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright 2026 Aureuma</string>
+    <key>NSCameraUsageDescription</key>
+    <string>maclev uses the camera when a website asks for camera access.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>maclev uses the microphone when a website asks for microphone access.</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>

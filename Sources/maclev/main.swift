@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 import WebKit
 
 @main
@@ -212,6 +213,7 @@ struct BrowserWebView: NSViewRepresentable {
         let configuration = WKWebViewConfiguration()
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         context.coordinator.attach(webView)
         return webView
@@ -254,7 +256,7 @@ struct BrowserWebView: NSViewRepresentable {
         }
     }
 
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         private weak var webView: WKWebView?
         private var lastCommandToken: UUID?
         private let updateAddress: (String) -> Void
@@ -319,6 +321,62 @@ struct BrowserWebView: NSViewRepresentable {
             updateLoading(false)
             updateStatus("Failed: \(error.localizedDescription)")
             updateHistory(webView.canGoBack, webView.canGoForward)
+        }
+
+        @available(macOS 13.0, *)
+        func webView(
+            _ webView: WKWebView,
+            requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+            initiatedByFrame frame: WKFrameInfo,
+            type: WKMediaCaptureType,
+            decisionHandler: @escaping (WKPermissionDecision) -> Void
+        ) {
+            requestAccess(for: type) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        self.updateStatus("Media access allowed for \(origin.host).")
+                        decisionHandler(.grant)
+                    } else {
+                        self.updateStatus("Media access denied for \(origin.host).")
+                        decisionHandler(.deny)
+                    }
+                }
+            }
+        }
+
+        private func requestAccess(for type: WKMediaCaptureType, completion: @escaping (Bool) -> Void) {
+            switch type {
+            case .camera:
+                requestDeviceAccess(for: .video, completion: completion)
+            case .microphone:
+                requestDeviceAccess(for: .audio, completion: completion)
+            case .cameraAndMicrophone:
+                requestDeviceAccess(for: .video) { cameraGranted in
+                    guard cameraGranted else {
+                        completion(false)
+                        return
+                    }
+
+                    self.requestDeviceAccess(for: .audio, completion: completion)
+                }
+            @unknown default:
+                completion(false)
+            }
+        }
+
+        private func requestDeviceAccess(for mediaType: AVMediaType, completion: @escaping (Bool) -> Void) {
+            switch AVCaptureDevice.authorizationStatus(for: mediaType) {
+            case .authorized:
+                completion(true)
+            case .notDetermined:
+                AVCaptureDevice.requestAccess(for: mediaType) { granted in
+                    completion(granted)
+                }
+            case .denied, .restricted:
+                completion(false)
+            @unknown default:
+                completion(false)
+            }
         }
     }
 }

@@ -7,6 +7,7 @@
 - Supports an always-on-top mode for the app's own window.
 - Includes basic browser controls: back, forward, reload/stop, home, and direct URL entry.
 - Uses SwiftUI and WebKit with no third-party dependencies.
+- Supports WebKit camera and microphone permission prompts for websites.
 
 ## Notes
 - `Always on top` only affects the `maclev` window itself.
