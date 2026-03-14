@@ -749,6 +749,10 @@ struct BrowserView: View {
                     }
                 }
             }
+
+            Spacer(minLength: 0)
+
+            newTabButton
         }
         .padding(.horizontal, 10)
         .frame(height: 34)
@@ -819,17 +823,21 @@ struct BrowserView: View {
     }
 
     private var floatingToggle: some View {
-        Toggle(isOn: Binding(
-            get: { model.isFloating },
-            set: { model.setFloating($0) }
-        )) {
+        HStack(spacing: 5) {
+            Toggle(isOn: Binding(
+                get: { model.isFloating },
+                set: { model.setFloating($0) }
+            )) {
+                EmptyView()
+            }
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .scaleEffect(0.78)
+            .labelsHidden()
+
             Text("🛸")
-                .font(.system(size: 10))
+                .font(.system(size: 11))
         }
-        .toggleStyle(.switch)
-        .controlSize(.mini)
-        .scaleEffect(0.78)
-        .labelsHidden()
         .help("Always on top")
     }
 
