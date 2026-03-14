@@ -131,12 +131,10 @@ struct BrowserView: View {
                     model.loadAddress()
                 }
 
-            Button("Go") {
-                model.loadAddress()
+            Toggle(isOn: $model.isFloating) {
+                Text("🛸")
+                    .font(.title2)
             }
-            .buttonStyle(.borderedProminent)
-
-            Toggle("🛸", isOn: $model.isFloating)
                 .toggleStyle(.switch)
         }
         .labelStyle(.iconOnly)
