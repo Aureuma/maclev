@@ -21,3 +21,13 @@
 - `cd ~/Downloads/maclev`
 - `swift build -c release`
 - `swift run`
+
+## Build app bundle
+- `cd ~/Downloads/maclev`
+- `./build_app.sh`
+
+This creates `build/maclev.app` with the bundled app icon from `maclev-logo-square.png`.
+
+## Install with Homebrew
+- `brew tap aureuma/maclev`
+- `brew install maclev`
