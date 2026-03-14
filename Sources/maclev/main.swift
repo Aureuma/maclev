@@ -19,13 +19,13 @@ struct MaclevApp: App {
             BrowserView()
                 .environmentObject(model)
                 .environmentObject(settings)
-                .frame(minWidth: 980, minHeight: 680)
+                .frame(minWidth: 260, minHeight: 140)
                 .onAppear {
                     NSApp.setActivationPolicy(.regular)
                     NSApp.activate(ignoringOtherApps: true)
                 }
         }
-        .defaultSize(width: 1180, height: 760)
+        .defaultSize(width: 980, height: 680)
 
         Settings {
             SettingsView()
