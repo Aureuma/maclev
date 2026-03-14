@@ -15,7 +15,7 @@ struct MaclevApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("maclev") {
+        WindowGroup("MacLev") {
             BrowserView()
                 .environmentObject(model)
                 .environmentObject(settings)
@@ -1166,7 +1166,7 @@ struct SettingsView: View {
                     Toggle(isOn: $settings.launchFloating) {
                         Label("Always on top", systemImage: "arrow.up.right.square")
                     }
-                    Text("Launch maclev with the floating window style enabled.")
+                    Text("Launch MacLev with the floating window style enabled.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

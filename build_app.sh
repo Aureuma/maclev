@@ -42,17 +42,17 @@ cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIdentifier</key>
     <string>ai.aureuma.maclev</string>
     <key>CFBundleName</key>
-    <string>maclev</string>
+    <string>MacLev</string>
     <key>CFBundleDisplayName</key>
-    <string>maclev</string>
+    <string>MacLev</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright 2026 Aureuma</string>
     <key>NSCameraUsageDescription</key>
-    <string>maclev uses the camera when a website asks for camera access.</string>
+    <string>MacLev uses the camera when a website asks for camera access.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>maclev uses the microphone when a website asks for microphone access.</string>
+    <string>MacLev uses the microphone when a website asks for microphone access.</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>

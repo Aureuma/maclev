@@ -1,4 +1,4 @@
-## maclev v0.4.4
+## MacLev v0.4.4
 
 ### Changes
 - improves settings tab hit targets so each tab card is fully clickable

@@ -1,4 +1,4 @@
-## maclev v0.4.6
+## MacLev v0.4.6
 
 ### Changes
 - Integrates browser controls into the window title bar using toolbar chrome (Safari-style placement).

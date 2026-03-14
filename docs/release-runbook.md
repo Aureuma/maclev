@@ -1,8 +1,8 @@
-# maclev Release Runbook
+# MacLev Release Runbook
 
 ## Purpose
 
-Release `maclev` as:
+Release `MacLev` as:
 
 - a tagged source release in `Aureuma/maclev`
 - a packaged macOS app zip stored in `Aureuma/homebrew-maclev`
@@ -35,7 +35,7 @@ Release `maclev` as:
 ## Permission UX checklist
 
 - `Ask` in permissions now follows macOS system camera/microphone permission state and does not show a custom in-app permission modal.
-- For a site-specific default of `ask`, maclev will still defer to current system permission, and the system dialog appears only when needed.
+- For a site-specific default of `ask`, MacLev will still defer to current system permission, and the system dialog appears only when needed.
 - If system permission is denied, the decision stays denied until changed in macOS System Settings.
 
 ## Release Notes Template
@@ -43,7 +43,7 @@ Release `maclev` as:
 Use this structure for the GitHub Release body:
 
 ```md
-## maclev vX.Y.Z
+## MacLev vX.Y.Z
 
 ### Changes
 - item
@@ -68,7 +68,7 @@ If `gh` is installed and authenticated:
 ```bash
 gh release create vX.Y.Z \
   --repo Aureuma/maclev \
-  --title "maclev vX.Y.Z" \
+  --title "MacLev vX.Y.Z" \
   --notes-file docs/release-notes-vX.Y.Z.md
 ```
 

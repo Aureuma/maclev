@@ -1,6 +1,6 @@
-# maclev
+# MacLev
 
-`maclev` is a lightweight floating browser for macOS.
+`MacLev` is a lightweight floating browser for macOS.
 
 ## What it does
 - Opens web pages in a simple desktop browser window.
@@ -10,11 +10,11 @@
 - Supports WebKit camera and microphone permission prompts for websites.
 
 ## Notes
-- `Always on top` only affects the `maclev` window itself.
+- `Always on top` only affects the `MacLev` window itself.
 - This app does not pin or control windows from other apps.
 
 ## How to use
-1. Open `maclev`.
+1. Open `MacLev`.
 2. Enter a URL such as `https://www.nasa.gov`.
 3. Press `Return` in the address bar to navigate.
 4. Use `Always on top` if you want the browser window to float above other windows.

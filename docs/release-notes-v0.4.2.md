@@ -1,4 +1,4 @@
-## maclev v0.4.2
+## MacLev v0.4.2
 
 ### Changes
 - sets the default homepage and start page placeholder to `https://www.nasa.gov`

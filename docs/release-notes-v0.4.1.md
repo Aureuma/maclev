@@ -1,4 +1,4 @@
-## maclev v0.4.1
+## MacLev v0.4.1
 
 ### Changes
 - reduced the minimum browser window size so the app can be resized much smaller

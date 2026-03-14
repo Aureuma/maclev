@@ -1,4 +1,4 @@
-## maclev v0.4.5
+## MacLev v0.4.5
 
 ### Changes
 - Implements true tabbed browsing in-browser with per-tab state isolation (address, back/forward, loading state, navigation title).
