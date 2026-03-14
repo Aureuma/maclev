@@ -31,6 +31,7 @@ struct MaclevApp: App {
             SettingsView()
                 .environmentObject(settings)
                 .frame(width: 760, height: 560)
+                .background(SettingsWindowConfigurator())
         }
     }
 }
@@ -908,6 +909,28 @@ struct SettingsView: View {
 
             Spacer()
         }
+    }
+}
+
+struct SettingsWindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        configure(window: view.window)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        configure(window: nsView.window)
+    }
+
+    private func configure(window: NSWindow?) {
+        guard let window else { return }
+        window.level = .floating
+        window.collectionBehavior = [.moveToActiveSpace]
+        window.isReleasedWhenClosed = false
+        window.hidesOnDeactivate = false
+        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
     }
 }
 
