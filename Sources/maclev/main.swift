@@ -841,6 +841,7 @@ struct WindowBehaviorConfigurator: NSViewRepresentable {
         window.level = isFloating ? .floating : .normal
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.hidesOnDeactivate = false
+        window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.toolbarStyle = .unified
         window.styleMask.insert(.fullSizeContentView)
