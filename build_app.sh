@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 ICON_SOURCE="maclev-logo-square.png"
 ICONSET_DIR="build/AppIcon.iconset"
 ICON_FILE="build/maclev.app/Contents/Resources/AppIcon.icns"
+OPEN_APP="${OPEN_APP:-1}"
 
 if [[ ! -f "$ICON_SOURCE" ]]; then
     echo "Missing app icon source: $ICON_SOURCE" >&2
@@ -56,4 +57,7 @@ cat > build/maclev.app/Contents/Info.plist <<'PLIST'
 PLIST
 
 chmod +x build/maclev.app/Contents/MacOS/maclev
-open build/maclev.app
+
+if [[ "$OPEN_APP" == "1" ]]; then
+    open build/maclev.app
+fi
