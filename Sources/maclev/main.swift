@@ -657,7 +657,6 @@ struct BrowserView: View {
             addressBar
 
             floatingToggle
-            newTabButton
         }
         .frame(height: 34)
         .padding(.leading, 76)
