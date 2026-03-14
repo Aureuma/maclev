@@ -135,7 +135,8 @@ struct BrowserView: View {
                 Text("🛸")
                     .font(.title2)
             }
-                .toggleStyle(.switch)
+            .toggleStyle(.switch)
+            .help("Always on top")
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.bordered)
