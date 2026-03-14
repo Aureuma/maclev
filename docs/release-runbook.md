@@ -18,9 +18,9 @@ Release `maclev` as:
    - `cd ~/Downloads/maclev`
    - `env OPEN_APP=0 ./build_app.sh`
 5. Package the app bundle:
-   - `ditto -c -k --sequesterRsrc --keepParent build/.bundle/maclev.app ~/Downloads/homebrew-maclev/artifacts/maclev-0.4.1.zip`
+   - `ditto -c -k --sequesterRsrc --keepParent build/.bundle/maclev.app ~/Downloads/homebrew-maclev/artifacts/maclev-0.4.4.zip`
 6. Compute the checksum:
-   - `shasum -a 256 ~/Downloads/homebrew-maclev/artifacts/maclev-0.4.1.zip`
+   - `shasum -a 256 ~/Downloads/homebrew-maclev/artifacts/maclev-0.4.4.zip`
 7. Update the cask version and checksum in `homebrew-maclev/Casks/maclev.rb`.
 8. Update release notes if needed.
 9. Commit and push `maclev`.
@@ -31,6 +31,12 @@ Release `maclev` as:
 13. Verify installed app path:
    - `/Applications/maclev.app`
 14. Create the GitHub Release in `Aureuma/maclev` if authenticated.
+
+## Permission UX checklist
+
+- `Ask` in permissions now follows macOS system camera/microphone permission state and does not show a custom in-app permission modal.
+- For a site-specific default of `ask`, maclev will still defer to current system permission, and the system dialog appears only when needed.
+- If system permission is denied, the decision stays denied until changed in macOS System Settings.
 
 ## Release Notes Template
 

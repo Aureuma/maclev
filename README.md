@@ -16,7 +16,7 @@
 ## How to use
 1. Open `maclev`.
 2. Enter a URL such as `https://www.nasa.gov`.
-3. Press `Return` or click `Go`.
+3. Press `Return` in the address bar to navigate.
 4. Use `Always on top` if you want the browser window to float above other windows.
 
 ## Build

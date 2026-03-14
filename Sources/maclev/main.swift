@@ -19,7 +19,7 @@ struct MaclevApp: App {
             BrowserView()
                 .environmentObject(model)
                 .environmentObject(settings)
-                .frame(minWidth: 260, minHeight: 140)
+                .frame(minWidth: 520, minHeight: 340)
                 .onAppear {
                     NSApp.setActivationPolicy(.regular)
                     NSApp.activate(ignoringOtherApps: true)
@@ -358,29 +358,59 @@ struct BrowserView: View {
 
     private var topBar: some View {
         HStack(spacing: 10) {
-            Button(action: model.goBack) {
-                Image(systemName: "chevron.left")
-            }
-            .disabled(!model.canGoBack)
-            .keyboardShortcut("[", modifiers: .command)
-
-            Button(action: model.goForward) {
-                Image(systemName: "chevron.right")
-            }
-            .disabled(!model.canGoForward)
-            .keyboardShortcut("]", modifiers: .command)
-
-            Button(action: model.reloadOrStop) {
-                Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
-            }
-            .keyboardShortcut("r", modifiers: .command)
-
-            TextField("https://www.nasa.gov", text: $model.addressText)
-                .textFieldStyle(.roundedBorder)
-                .focused($addressFieldFocused)
-                .onSubmit {
-                    model.loadAddress()
+            HStack(spacing: 0) {
+                Button(action: model.goBack) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 24, height: 20)
                 }
+                .disabled(!model.canGoBack)
+                .keyboardShortcut("[", modifiers: .command)
+                .buttonStyle(.plain)
+
+                Divider()
+
+                Button(action: model.goForward) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 24, height: 20)
+                }
+                .disabled(!model.canGoForward)
+                .keyboardShortcut("]", modifiers: .command)
+                .buttonStyle(.plain)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(NSColor.separatorColor).opacity(0.32), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            HStack(spacing: 0) {
+                TextField("https://www.nasa.gov", text: $model.addressText)
+                    .textFieldStyle(.plain)
+                    .focused($addressFieldFocused)
+                    .onSubmit {
+                        model.loadAddress()
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 28)
+
+                Divider()
+
+                Button(action: model.reloadOrStop) {
+                    Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 26, height: 20)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("r", modifiers: .command)
+                .help(model.isLoading ? "Stop" : "Reload")
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(NSColor.separatorColor).opacity(0.32), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Toggle(isOn: Binding(
                 get: { model.isFloating },
@@ -408,8 +438,6 @@ struct BrowserView: View {
             .frame(width: 0, height: 0)
             .opacity(0)
         }
-        .labelStyle(.iconOnly)
-        .buttonStyle(.bordered)
     }
 }
 
@@ -616,24 +644,12 @@ struct BrowserWebView: NSViewRepresentable {
                     decisionHandler(.deny)
                 }
             case .ask:
-                promptForPermission(host: host, type: type) { granted, remember in
-                    if remember {
-                        self.remember(host: host, type: type, value: granted ? .allow : .deny)
-                    }
-
-                    guard granted else {
-                        DispatchQueue.main.async {
-                            self.updateStatus("Media access denied.")
-                            decisionHandler(.deny)
-                        }
-                        return
-                    }
-
-                    self.requestAccess(for: type) { systemGranted in
-                        DispatchQueue.main.async {
-                            self.updateStatus(systemGranted ? "Media access allowed." : "Media access denied.")
-                            decisionHandler(systemGranted ? .grant : .deny)
-                        }
+                requestAccess(for: type) { granted in
+                    DispatchQueue.main.async {
+                        self.updateStatus(
+                            granted ? "Media access allowed." : "Media access denied. Enable in macOS System Settings if needed."
+                        )
+                        decisionHandler(granted ? .grant : .deny)
                     }
                 }
             }
@@ -657,49 +673,6 @@ struct BrowserWebView: NSViewRepresentable {
                 return .ask
             @unknown default:
                 return .ask
-            }
-        }
-
-        private func remember(host: String, type: WKMediaCaptureType, value: PermissionPolicy) {
-            switch type {
-            case .camera:
-                settings.setPolicy(for: host, kind: .camera, value: value)
-            case .microphone:
-                settings.setPolicy(for: host, kind: .microphone, value: value)
-            case .cameraAndMicrophone:
-                settings.setPolicies(for: host, camera: value, microphone: value)
-            @unknown default:
-                break
-            }
-        }
-
-        private func promptForPermission(host: String, type: WKMediaCaptureType, completion: @escaping (Bool, Bool) -> Void) {
-            DispatchQueue.main.async {
-                let alert = NSAlert()
-                alert.alertStyle = .informational
-                alert.messageText = host
-                alert.informativeText = "Allow \(self.captureName(for: type))?"
-                alert.addButton(withTitle: "Allow")
-                alert.addButton(withTitle: "Deny")
-
-                let rememberToggle = NSButton(checkboxWithTitle: "Remember", target: nil, action: nil)
-                alert.accessoryView = rememberToggle
-
-                let response = alert.runModal()
-                completion(response == .alertFirstButtonReturn, rememberToggle.state == .on)
-            }
-        }
-
-        private func captureName(for type: WKMediaCaptureType) -> String {
-            switch type {
-            case .camera:
-                return "camera access"
-            case .microphone:
-                return "microphone access"
-            case .cameraAndMicrophone:
-                return "camera and microphone access"
-            @unknown default:
-                return "media access"
             }
         }
 
@@ -760,10 +733,12 @@ struct SettingsView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
+                        .contentShape(Rectangle())
                         .background(selectedTab == tab ? Color(NSColor.controlAccentColor).opacity(0.14) : Color.clear)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
                     .help(tab.title)
                 }
             }
@@ -793,11 +768,14 @@ struct SettingsView: View {
             }
 
             SettingsSection(icon: AppSVG.saucer, title: "Window") {
-                Toggle(isOn: $settings.launchFloating) {
-                    EmptyView()
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle(isOn: $settings.launchFloating) {
+                        Label("Always on top", systemImage: "arrow.up.right.square")
+                    }
+                    Text("Launch maclev with the floating window style enabled.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .labelsHidden()
-                .help("Launch with Always on top enabled")
             }
 
             Spacer()
@@ -807,23 +785,25 @@ struct SettingsView: View {
     private var permissionsTab: some View {
         VStack(alignment: .leading, spacing: 18) {
             SettingsSection(icon: AppSVG.shield, title: "Defaults") {
-                HStack(spacing: 18) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Grid(horizontalSpacing: 12, verticalSpacing: 8) {
+                        GridRow {
                             SVGIconView(svg: AppSVG.camera, size: 18)
                                 .frame(width: 18, height: 18)
                             PolicyPicker(selection: $settings.defaultCameraPolicy)
-                        }
-                    }
+                                .frame(width: 132)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
                             SVGIconView(svg: AppSVG.microphone, size: 18)
                                 .frame(width: 18, height: 18)
                             PolicyPicker(selection: $settings.defaultMicrophonePolicy)
+                                .frame(width: 132)
                         }
                     }
-                }
+
+                    Text("Defaults apply only when a site has no saved rule.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
             }
 
             SettingsSection(icon: AppSVG.globe, title: "Sites") {
@@ -832,18 +812,37 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     VStack(spacing: 10) {
-                        HStack {
-                            Spacer()
-                            SVGIconView(svg: AppSVG.camera, size: 16)
-                                .frame(width: 32, height: 16)
-                            SVGIconView(svg: AppSVG.microphone, size: 16)
-                                .frame(width: 32, height: 16)
-                        }
-
                         ScrollView {
-                            VStack(spacing: 10) {
+                            Grid(horizontalSpacing: 12, verticalSpacing: 10) {
+                                GridRow {
+                                    Text("Site")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+
+                                    HStack(spacing: 6) {
+                                        SVGIconView(svg: AppSVG.camera, size: 14)
+                                            .frame(width: 14, height: 14)
+                                        Text("Camera")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .frame(width: 132, alignment: .leading)
+
+                                    HStack(spacing: 6) {
+                                        SVGIconView(svg: AppSVG.microphone, size: 14)
+                                            .frame(width: 14, height: 14)
+                                        Text("Microphone")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .frame(width: 132, alignment: .leading)
+                                }
+
+                                Divider()
+                                    .gridCellUnsizedAxes(.horizontal)
+
                                 ForEach(settings.siteRules) { rule in
-                                    HStack(spacing: 12) {
+                                    GridRow {
                                         Text(rule.host)
                                             .lineLimit(1)
                                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -854,7 +853,7 @@ struct SettingsView: View {
                                                 set: { settings.setPolicy(for: rule.host, kind: .camera, value: $0) }
                                             )
                                         )
-                                        .frame(width: 120)
+                                        .frame(width: 132)
 
                                         PolicyPicker(
                                             selection: Binding(
@@ -862,7 +861,7 @@ struct SettingsView: View {
                                                 set: { settings.setPolicy(for: rule.host, kind: .microphone, value: $0) }
                                             )
                                         )
-                                        .frame(width: 120)
+                                        .frame(width: 132)
                                     }
                                 }
                             }
