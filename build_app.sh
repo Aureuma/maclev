@@ -4,18 +4,22 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 ICON_SOURCE="${ICON_SOURCE:-maclev-logo-square.png}"
+GENERATED_ICON="${GENERATED_ICON:-maclev-generated.icns}"
 APP_STAGING_DIR="build/.bundle"
 APP_BUNDLE_PATH="$APP_STAGING_DIR/maclev.app"
 ICONSET_DIR="$APP_STAGING_DIR/AppIcon.iconset"
 ICON_FILE="$APP_BUNDLE_PATH/Contents/Resources/AppIcon.icns"
 OPEN_APP="${OPEN_APP:-0}"
-HAS_ICON=false
+HAS_ICON_SOURCE=false
+HAS_GENERATED_ICON=false
 
 if [[ -f "$ICON_SOURCE" ]]; then
-    HAS_ICON=true
+    HAS_ICON_SOURCE=true
+elif [[ -f "$GENERATED_ICON" ]]; then
+    HAS_GENERATED_ICON=true
 else
     echo "Missing app icon source: $ICON_SOURCE" >&2
-    echo "Set ICON_SOURCE or place maclev-logo-square.png in the repository root." >&2
+    echo "Set ICON_SOURCE, provide maclev-logo-square.png, or keep a generated icon at $GENERATED_ICON." >&2
     exit 1
 fi
 
@@ -24,7 +28,7 @@ rm -rf "$APP_STAGING_DIR"
 mkdir -p "$APP_BUNDLE_PATH/Contents/"{MacOS,Resources}
 cp .build/release/maclev "$APP_BUNDLE_PATH/Contents/MacOS/maclev"
 
-if [[ "$HAS_ICON" == "true" ]]; then
+if [[ "$HAS_ICON_SOURCE" == "true" ]]; then
     rm -rf "$ICONSET_DIR"
     mkdir -p "$ICONSET_DIR"
 
@@ -36,6 +40,8 @@ if [[ "$HAS_ICON" == "true" ]]; then
 
     cp "$ICON_SOURCE" "$ICONSET_DIR/icon_512x512@2x.png"
     iconutil -c icns "$ICONSET_DIR" -o "$ICON_FILE"
+elif [[ "$HAS_GENERATED_ICON" == "true" ]]; then
+    cp "$GENERATED_ICON" "$ICON_FILE"
 fi
 
 cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<'PLIST'
@@ -70,7 +76,6 @@ cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
-fi
 
 chmod +x "$APP_BUNDLE_PATH/Contents/MacOS/maclev"
 
