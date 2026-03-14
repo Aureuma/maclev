@@ -38,8 +38,6 @@ final class BrowserModel: ObservableObject {
     @Published var command: BrowserCommand?
     @Published var commandToken = UUID()
 
-    let homeURL = URL(string: "https://www.example.com")!
-
     func loadAddress() {
         let raw = addressText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else {
@@ -61,11 +59,6 @@ final class BrowserModel: ObservableObject {
 
         addressText = url.absoluteString
         issue(.load(url))
-    }
-
-    func goHome() {
-        addressText = homeURL.absoluteString
-        issue(.load(homeURL))
     }
 
     func goBack() {
@@ -112,7 +105,7 @@ struct BrowserView: View {
         }
         .padding(12)
         .onAppear {
-            model.goHome()
+            model.loadAddress()
         }
     }
 
@@ -130,10 +123,6 @@ struct BrowserView: View {
 
             Button(action: model.reloadOrStop) {
                 Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
-            }
-
-            Button(action: model.goHome) {
-                Image(systemName: "house")
             }
 
             TextField("https://example.com", text: $model.addressText)
