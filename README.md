@@ -1,4 +1,4 @@
-# MacLev
+# 🛸 MacLev
 
 Levitating "Always on top" browser for macOS.
 
