@@ -36,7 +36,7 @@ struct MaclevApp: App {
     }
 }
 
-enum BrowserCommand {
+enum BrowserCommand: Equatable {
     case load(URL)
     case goBack
     case goForward
@@ -44,7 +44,7 @@ enum BrowserCommand {
     case stop
 }
 
-struct BrowserTabState: Identifiable {
+struct BrowserTabState: Identifiable, Equatable {
     let id = UUID()
     var title: String
     var addressText: String
@@ -102,19 +102,34 @@ struct SitePermissionRule: Codable, Identifiable, Hashable {
 @MainActor
 final class SettingsStore: ObservableObject {
     @Published var startPage: String {
-        didSet { persistIfReady() }
+        didSet {
+            guard startPage != oldValue else { return }
+            persistIfReady()
+        }
     }
     @Published var launchFloating: Bool {
-        didSet { persistIfReady() }
+        didSet {
+            guard launchFloating != oldValue else { return }
+            persistIfReady()
+        }
     }
     @Published var defaultCameraPolicy: PermissionPolicy {
-        didSet { persistIfReady() }
+        didSet {
+            guard defaultCameraPolicy != oldValue else { return }
+            persistIfReady()
+        }
     }
     @Published var defaultMicrophonePolicy: PermissionPolicy {
-        didSet { persistIfReady() }
+        didSet {
+            guard defaultMicrophonePolicy != oldValue else { return }
+            persistIfReady()
+        }
     }
     @Published var siteRules: [SitePermissionRule] {
-        didSet { persistIfReady() }
+        didSet {
+            guard siteRules != oldValue else { return }
+            persistIfReady()
+        }
     }
 
     private let storageURL: URL
@@ -172,6 +187,8 @@ final class SettingsStore: ObservableObject {
         guard !normalizedHost.isEmpty else { return }
 
         if let index = siteRules.firstIndex(where: { $0.host == normalizedHost }) {
+            let currentValue = kind == .camera ? siteRules[index].camera : siteRules[index].microphone
+            guard currentValue != value else { return }
             if kind == .camera {
                 siteRules[index].camera = value
             } else {
@@ -198,6 +215,7 @@ final class SettingsStore: ObservableObject {
         guard !normalizedHost.isEmpty else { return }
 
         if let index = siteRules.firstIndex(where: { $0.host == normalizedHost }) {
+            guard siteRules[index].camera != camera || siteRules[index].microphone != microphone else { return }
             siteRules[index].camera = camera
             siteRules[index].microphone = microphone
         } else {
@@ -207,6 +225,7 @@ final class SettingsStore: ObservableObject {
     }
 
     func clearSiteRules() {
+        guard !siteRules.isEmpty else { return }
         siteRules.removeAll()
     }
 
@@ -593,7 +612,11 @@ final class BrowserModel: ObservableObject {
 
     private func update(_ id: UUID, _ apply: (inout BrowserTabState) -> Void) {
         guard let index = index(for: id) else { return }
-        apply(&tabs[index])
+        let current = tabs[index]
+        var updated = current
+        apply(&updated)
+        guard updated != current else { return }
+        tabs[index] = updated
     }
 }
 
@@ -1006,9 +1029,6 @@ struct BrowserWebView: NSViewRepresentable {
             }
 
             self.webView = webView
-            DispatchQueue.main.async {
-                self.updateHistory(webView.canGoBack, webView.canGoForward)
-            }
         }
 
         func consumeCommandToken(_ token: UUID) -> Bool {
@@ -1452,6 +1472,10 @@ struct SVGIconView: NSViewRepresentable {
     let svg: String
     let size: CGFloat
 
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -1470,7 +1494,13 @@ struct SVGIconView: NSViewRepresentable {
         </body>
         </html>
         """
+        guard context.coordinator.lastHTML != html else { return }
+        context.coordinator.lastHTML = html
         webView.loadHTMLString(html, baseURL: nil)
+    }
+
+    final class Coordinator {
+        var lastHTML: String?
     }
 }
 
