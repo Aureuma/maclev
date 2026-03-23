@@ -8,6 +8,8 @@ APP_STAGING_DIR="build/.bundle"
 APP_BUNDLE_PATH="$APP_STAGING_DIR/maclev.app"
 ICON_FILE="$APP_BUNDLE_PATH/Contents/Resources/AppIcon.icns"
 OPEN_APP="${OPEN_APP:-0}"
+APP_VERSION="${APP_VERSION:-0.4.18}"
+APP_BUILD_NUMBER="${APP_BUILD_NUMBER:-$APP_VERSION}"
 
 if [[ ! -f "$APP_ICON_PATH" ]]; then
     echo "Missing app icon asset: $APP_ICON_PATH" >&2
@@ -22,7 +24,7 @@ mkdir -p "$APP_BUNDLE_PATH/Contents/"{MacOS,Resources}
 cp .build/release/maclev "$APP_BUNDLE_PATH/Contents/MacOS/maclev"
 cp "$APP_ICON_PATH" "$ICON_FILE"
 
-cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<'PLIST'
+cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -35,6 +37,10 @@ cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<'PLIST'
     <string>MacLev</string>
     <key>CFBundleDisplayName</key>
     <string>MacLev</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${APP_VERSION}</string>
+    <key>CFBundleVersion</key>
+    <string>${APP_BUILD_NUMBER}</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>NSHumanReadableCopyright</key>

@@ -29,6 +29,7 @@ Levitating "Always on top" browser for macOS.
 - `./build_app.sh`
 
 This creates a local app bundle in `build/.bundle/maclev.app` using the committed icon assets at `assets/`.
+The current default packaged version is `0.4.18`. Override it with `APP_VERSION` and `APP_BUILD_NUMBER` when needed.
 
 ## Install with Homebrew
 - `brew tap aureuma/maclev`
