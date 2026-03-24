@@ -8,8 +8,9 @@ APP_STAGING_DIR="build/.bundle"
 APP_BUNDLE_PATH="$APP_STAGING_DIR/maclev.app"
 ICON_FILE="$APP_BUNDLE_PATH/Contents/Resources/AppIcon.icns"
 OPEN_APP="${OPEN_APP:-0}"
-APP_VERSION="${APP_VERSION:-0.4.18}"
+APP_VERSION="${APP_VERSION:-0.4.19}"
 APP_BUILD_NUMBER="${APP_BUILD_NUMBER:-$APP_VERSION}"
+SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 
 if [[ ! -f "$APP_ICON_PATH" ]]; then
     echo "Missing app icon asset: $APP_ICON_PATH" >&2
@@ -62,6 +63,7 @@ cat > "$APP_BUNDLE_PATH/Contents/Info.plist" <<PLIST
 PLIST
 
 chmod +x "$APP_BUNDLE_PATH/Contents/MacOS/maclev"
+codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_BUNDLE_PATH"
 
 if [[ "$OPEN_APP" == "1" ]]; then
     open "$APP_BUNDLE_PATH"

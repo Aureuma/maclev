@@ -13,14 +13,14 @@ Release `MacLev` as:
 
 1. Ensure `maclev` working tree is clean.
 2. Ensure `homebrew-maclev` working tree is clean.
-3. Pick the next version tag, for example `v0.4.18`.
+3. Pick the next version tag, for example `v0.4.19`.
 4. Build the app bundle:
    - `cd ~/Downloads/maclev`
-   - `env APP_VERSION=0.4.18 APP_BUILD_NUMBER=0.4.18 OPEN_APP=0 ./build_app.sh`
+   - `env APP_VERSION=0.4.19 APP_BUILD_NUMBER=0.4.19 OPEN_APP=0 ./build_app.sh`
 5. Package the app bundle:
-   - `ditto -c -k --sequesterRsrc --keepParent build/.bundle/maclev.app ~/Downloads/homebrew-maclev/artifacts/maclev-0.4.18.zip`
+   - `ditto -c -k --sequesterRsrc --keepParent build/.bundle/maclev.app ~/Downloads/homebrew-maclev/artifacts/maclev-0.4.19.zip`
 6. Compute the checksum:
-   - `shasum -a 256 ~/Downloads/homebrew-maclev/artifacts/maclev-0.4.18.zip`
+   - `shasum -a 256 ~/Downloads/homebrew-maclev/artifacts/maclev-0.4.19.zip`
 7. Update the cask version and checksum in `homebrew-maclev/Casks/maclev.rb`.
 8. Update release notes if needed.
 9. Commit and push `maclev`.

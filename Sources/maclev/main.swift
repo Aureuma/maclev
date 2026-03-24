@@ -33,6 +33,93 @@ struct MaclevApp: App {
                 .frame(width: 760, height: 560)
                 .background(SettingsWindowConfigurator())
         }
+        .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("About MacLev") {
+                    AboutWindowController.shared.show()
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
+        }
+    }
+}
+
+enum AppMetadata {
+    static var shortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unversioned"
+    }
+
+    static var buildVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? shortVersion
+    }
+
+    static var displayVersion: String {
+        if buildVersion == shortVersion {
+            return shortVersion
+        }
+        return "\(shortVersion) (\(buildVersion))"
+    }
+}
+
+@MainActor
+final class AboutWindowController: NSWindowController, NSWindowDelegate {
+    static let shared = AboutWindowController()
+
+    private init() {
+        let hostingController = NSHostingController(rootView: AboutView())
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "About MacLev"
+        window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.setContentSize(NSSize(width: 320, height: 220))
+        window.delegate = nil
+        super.init(window: window)
+        self.window?.delegate = self
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func show() {
+        guard let window else { return }
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+    }
+}
+
+struct AboutView: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 64, height: 64)
+
+            Text("MacLev")
+                .font(.system(size: 24, weight: .semibold))
+
+            Text("Version \(AppMetadata.displayVersion)")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+
+            Text("Copyright 2026 Aureuma")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(28)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(NSColor.windowBackgroundColor),
+                    Color(NSColor.controlBackgroundColor)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
     }
 }
 
