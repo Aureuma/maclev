@@ -3,6 +3,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+if [[ "${SI_BUILD_GUARD_ACTIVE:-0}" != "1" ]]; then
+    exec ./scripts/build-guard.sh "$0" "$@"
+fi
+
 APP_ICON_PATH="${APP_ICON_PATH:-assets/AppIcon.icns}"
 APP_STAGING_DIR="build/.bundle"
 APP_BUNDLE_PATH="$APP_STAGING_DIR/maclev.app"
@@ -19,7 +23,7 @@ if [[ ! -f "$APP_ICON_PATH" ]]; then
     exit 1
 fi
 
-swift build --disable-sandbox -c release
+swift build --disable-sandbox -c release --jobs "${SI_BUILD_JOBS:-2}"
 rm -rf "$APP_STAGING_DIR"
 mkdir -p "$APP_BUNDLE_PATH/Contents/"{MacOS,Resources}
 cp .build/release/maclev "$APP_BUNDLE_PATH/Contents/MacOS/maclev"
