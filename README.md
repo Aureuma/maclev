@@ -5,7 +5,7 @@ Levitating "Always on top" browser for macOS.
 ## What it does
 - Opens web pages in a simple desktop browser window.
 - Supports an always-on-top mode for the app's own window.
-- Includes basic browser controls: back, forward, reload/stop, home, and direct URL entry.
+- Includes basic browser controls: back, forward, reload/stop, tabs, and direct URL entry.
 - Uses SwiftUI and WebKit with no third-party dependencies.
 - Supports WebKit camera and microphone permission prompts for websites.
 
@@ -29,7 +29,7 @@ Levitating "Always on top" browser for macOS.
 - `./build_app.sh`
 
 This creates a local app bundle in `build/.bundle/maclev.app` using the committed icon assets at `assets/`.
-The current default packaged version is `0.4.19`. Override it with `APP_VERSION` and `APP_BUILD_NUMBER` when needed.
+The current default packaged version is `0.4.20`. Override it with `APP_VERSION` and `APP_BUILD_NUMBER` when needed.
 
 ## Install with Homebrew
 - `brew tap aureuma/maclev`

@@ -14,6 +14,11 @@ let package = Package(
         .executableTarget(
             name: "maclev",
             path: "Sources/maclev"
+        ),
+        .testTarget(
+            name: "maclevTests",
+            dependencies: ["maclev"],
+            path: "Tests/maclevTests"
         )
     ]
 )

@@ -6,18 +6,15 @@ import WebKit
 @main
 struct MaclevApp: App {
     @StateObject private var settings: SettingsStore
-    @StateObject private var model: BrowserModel
 
     init() {
         let sharedSettings = SettingsStore()
         _settings = StateObject(wrappedValue: sharedSettings)
-        _model = StateObject(wrappedValue: BrowserModel(settings: sharedSettings))
     }
 
     var body: some Scene {
         WindowGroup("MacLev") {
-            BrowserView()
-                .environmentObject(model)
+            BrowserWindowRoot(settings: settings)
                 .environmentObject(settings)
                 .frame(minWidth: 520, minHeight: 340)
                 .onAppear {
@@ -44,6 +41,28 @@ struct MaclevApp: App {
     }
 }
 
+struct BrowserWindowRoot: View {
+    let settings: SettingsStore
+    @StateObject private var model: BrowserModel
+    @State private var didLoadInitialPage = false
+
+    init(settings: SettingsStore) {
+        self.settings = settings
+        _model = StateObject(wrappedValue: BrowserModel(settings: settings))
+    }
+
+    var body: some View {
+        BrowserView()
+            .environmentObject(model)
+            .environmentObject(settings)
+            .onAppear {
+                guard !didLoadInitialPage else { return }
+                didLoadInitialPage = true
+                model.loadAddress()
+            }
+    }
+}
+
 enum AppMetadata {
     static var shortVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unversioned"
@@ -58,6 +77,28 @@ enum AppMetadata {
             return shortVersion
         }
         return "\(shortVersion) (\(buildVersion))"
+    }
+}
+
+enum BrowserAddress {
+    static let defaultStartPage = "https://www.nasa.gov"
+
+    static func normalizedURLString(from raw: String?) -> String? {
+        let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return nil }
+
+        var candidate = trimmed
+        if !candidate.contains("://") {
+            candidate = "https://" + candidate
+        }
+
+        guard let url = URL(string: candidate),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https", "file"].contains(scheme) else {
+            return nil
+        }
+
+        return url.absoluteString
     }
 }
 
@@ -222,16 +263,20 @@ final class SettingsStore: ObservableObject {
     private let storageURL: URL
     private var isRestoring = true
 
-    init() {
-        let fileManager = Foundation.FileManager()
-        let supportDirectory = fileManager.urls(
-            for: Foundation.FileManager.SearchPathDirectory.applicationSupportDirectory,
-            in: Foundation.FileManager.SearchPathDomainMask.userDomainMask
-        ).first!
-        let appDirectory = supportDirectory.appendingPathComponent("maclev", isDirectory: true)
-        storageURL = appDirectory.appendingPathComponent("settings.json")
+    init(storageURL: URL? = nil) {
+        if let storageURL {
+            self.storageURL = storageURL
+        } else {
+            let fileManager = Foundation.FileManager()
+            let supportDirectory = fileManager.urls(
+                for: Foundation.FileManager.SearchPathDirectory.applicationSupportDirectory,
+                in: Foundation.FileManager.SearchPathDomainMask.userDomainMask
+            ).first!
+            let appDirectory = supportDirectory.appendingPathComponent("maclev", isDirectory: true)
+            self.storageURL = appDirectory.appendingPathComponent("settings.json")
+        }
 
-        startPage = "https://www.nasa.gov"
+        startPage = BrowserAddress.defaultStartPage
         launchFloating = true
         defaultCameraPolicy = .ask
         defaultMicrophonePolicy = .ask
@@ -316,6 +361,16 @@ final class SettingsStore: ObservableObject {
         siteRules.removeAll()
     }
 
+    @discardableResult
+    func updateStartPage(from raw: String) -> Bool {
+        guard let normalized = BrowserAddress.normalizedURLString(from: raw) else {
+            return false
+        }
+        guard startPage != normalized else { return true }
+        startPage = normalized
+        return true
+    }
+
     private func defaultPolicy(for kind: SitePermissionKind) -> PermissionPolicy {
         kind == .camera ? defaultCameraPolicy : defaultMicrophonePolicy
     }
@@ -357,7 +412,7 @@ final class SettingsStore: ObservableObject {
             return
         }
 
-        startPage = state.startPage
+        startPage = BrowserAddress.normalizedURLString(from: state.startPage) ?? BrowserAddress.defaultStartPage
         launchFloating = state.launchFloating
         defaultCameraPolicy = state.defaultCameraPolicy
         defaultMicrophonePolicy = state.defaultMicrophonePolicy
@@ -479,8 +534,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func openTab(with address: String?) {
-        let normalized = address?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let nextAddress = normalized?.isEmpty == false ? normalized! : settings.startPage
+        let nextAddress = BrowserAddress.normalizedURLString(from: address) ?? settings.startPage
 
         let newTab = BrowserTabState(
             title: untitledTabTitle,
@@ -544,20 +598,13 @@ final class BrowserModel: ObservableObject {
             return
         }
 
-        var candidate = raw
-        if !candidate.contains("://") {
-            candidate = "https://" + candidate
-        }
-
-        guard let url = URL(string: candidate),
-              let scheme = url.scheme?.lowercased(),
-              ["http", "https", "file"].contains(scheme) else {
+        guard let normalizedAddress = BrowserAddress.normalizedURLString(from: raw),
+              let url = URL(string: normalizedAddress) else {
             setStatus("Enter a valid http, https, or file URL.", for: tabID)
             return
         }
 
-        setAddress(url.absoluteString, for: tabID)
-        settings.startPage = url.absoluteString
+        setAddress(normalizedAddress, for: tabID)
         issue(.load(url), for: tabID)
     }
 
@@ -579,7 +626,6 @@ final class BrowserModel: ObservableObject {
 
     func setFloating(_ value: Bool) {
         isFloating = value
-        settings.launchFloating = value
     }
 
     func addressBinding(for tabID: UUID) -> Binding<String> {
@@ -726,6 +772,9 @@ struct BrowserView: View {
                     BrowserWebView(
                         tabID: tab.id,
                         settings: model.settings,
+                        onOpenInNewTab: { address in
+                            model.openTab(with: address)
+                        },
                         onUpdateTitle: { title in
                             model.updateTitle(title, for: tab.id)
                         },
@@ -755,9 +804,6 @@ struct BrowserView: View {
             .allowsHitTesting(false),
             alignment: .topLeading
         )
-        .onAppear {
-            model.loadAddress()
-        }
     }
 
     private var fullWidthTopBar: some View {
@@ -997,6 +1043,7 @@ struct WindowBehaviorConfigurator: NSViewRepresentable {
 struct BrowserWebView: NSViewRepresentable {
     let tabID: UUID
     let settings: SettingsStore
+    let onOpenInNewTab: (String?) -> Void
     let onUpdateTitle: (String) -> Void
     @Binding var addressText: String
     @Binding var status: String
@@ -1009,6 +1056,7 @@ struct BrowserWebView: NSViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(
             settings: settings,
+            openNewTab: onOpenInNewTab,
             updateAddress: { addressText = $0 },
             updateStatus: { status = $0 },
             updateHistory: { back, forward in
@@ -1075,6 +1123,7 @@ struct BrowserWebView: NSViewRepresentable {
         private var lastCommandToken: UUID?
         private var urlObservation: NSKeyValueObservation?
         private let settings: SettingsStore
+        private let openNewTab: (String?) -> Void
         private let updateAddress: (String) -> Void
         private let updateStatus: (String) -> Void
         private let updateHistory: (Bool, Bool) -> Void
@@ -1083,6 +1132,7 @@ struct BrowserWebView: NSViewRepresentable {
 
         init(
             settings: SettingsStore,
+            openNewTab: @escaping (String?) -> Void,
             updateAddress: @escaping (String) -> Void,
             updateStatus: @escaping (String) -> Void,
             updateHistory: @escaping (Bool, Bool) -> Void,
@@ -1090,6 +1140,7 @@ struct BrowserWebView: NSViewRepresentable {
             updateTitle: @escaping (String) -> Void
         ) {
             self.settings = settings
+            self.openNewTab = openNewTab
             self.updateAddress = updateAddress
             self.updateStatus = updateStatus
             self.updateHistory = updateHistory
@@ -1124,6 +1175,18 @@ struct BrowserWebView: NSViewRepresentable {
             }
             lastCommandToken = token
             return true
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            createWebViewWith configuration: WKWebViewConfiguration,
+            for navigationAction: WKNavigationAction,
+            windowFeatures: WKWindowFeatures
+        ) -> WKWebView? {
+            DispatchQueue.main.async {
+                self.openNewTab(navigationAction.request.url?.absoluteString)
+            }
+            return nil
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -1271,6 +1334,8 @@ struct BrowserWebView: NSViewRepresentable {
 struct SettingsView: View {
     @EnvironmentObject private var settings: SettingsStore
     @State private var selectedTab: SettingsTab = .general
+    @State private var startPageDraft = ""
+    @State private var startPageStatus = "New tabs and new windows start here."
     @State private var dataStatus = "Website data is kept locally until you clear it."
 
     var body: some View {
@@ -1318,22 +1383,42 @@ struct SettingsView: View {
     private var generalTab: some View {
         VStack(alignment: .leading, spacing: 18) {
             SettingsSection(icon: AppSVG.home, title: "Start") {
-                TextField("https://www.nasa.gov", text: $settings.startPage)
-                    .textFieldStyle(.roundedBorder)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        TextField("https://www.nasa.gov", text: $startPageDraft)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit {
+                                applyStartPageDraft()
+                            }
+
+                        Button("Apply") {
+                            applyStartPageDraft()
+                        }
+                    }
+
+                    Text(startPageStatus)
+                        .font(.caption)
+                        .foregroundStyle(startPageStatus.hasPrefix("Enter a valid") ? .red : .secondary)
+                }
             }
 
             SettingsSection(icon: AppSVG.saucer, title: "Window") {
                 VStack(alignment: .leading, spacing: 10) {
                     Toggle(isOn: $settings.launchFloating) {
-                        Label("Always on top", systemImage: "arrow.up.right.square")
+                        Label("New windows float above other apps", systemImage: "arrow.up.right.square")
                     }
-                    Text("Launch MacLev with the floating window style enabled.")
+                    Text("This sets the default for windows opened later. The toolbar toggle only changes the current window.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
 
             Spacer()
+        }
+        .onAppear {
+            if startPageDraft.isEmpty {
+                startPageDraft = settings.startPage
+            }
         }
     }
 
@@ -1464,6 +1549,15 @@ struct SettingsView: View {
             Spacer()
         }
     }
+
+    private func applyStartPageDraft() {
+        if settings.updateStartPage(from: startPageDraft) {
+            startPageDraft = settings.startPage
+            startPageStatus = "Start page saved."
+        } else {
+            startPageStatus = "Enter a valid http, https, or file URL."
+        }
+    }
 }
 
 struct SettingsWindowConfigurator: NSViewRepresentable {
@@ -1483,8 +1577,6 @@ struct SettingsWindowConfigurator: NSViewRepresentable {
         window.collectionBehavior = [.moveToActiveSpace]
         window.isReleasedWhenClosed = false
         window.hidesOnDeactivate = false
-        window.orderFrontRegardless()
-        window.makeKeyAndOrderFront(nil)
     }
 }
 
